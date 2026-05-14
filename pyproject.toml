@@ -4,10 +4,22 @@ version = "0.2.0"
 description = "Hands-free AI voice assistant for Linux. Whisper STT, OpenCode LLM, Piper TTS, persistent daemon with agent skills."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "faster-whisper",
+    "numpy",
+    "piper-tts",
+    "requests",
+    "sounddevice",
+    "soundfile",
+]
 
 [project.optional-dependencies]
 dev = ["pytest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
