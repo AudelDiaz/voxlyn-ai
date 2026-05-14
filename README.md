@@ -46,8 +46,10 @@ systemctl --user enable --now voxlyn-ai
 | Field | Value |
 |-------|-------|
 | Name | voxlyn-ai |
-| Command | ``` uv run --project /home/audeldiaz/voxlyn-ai /home/audeldiaz/voxlyn-ai/trigger.py ``` |
+| Command | ``` uv run --project /path/to/voxlyn-ai /path/to/voxlyn-ai/trigger.py ``` |
 | Shortcut | e.g. `Alt+Z` |
+
+Replace `/path/to/voxlyn-ai` with the actual path (e.g. `$HOME/voxlyn-ai`).
 
 Press the shortcut, speak, hear the response.
 
