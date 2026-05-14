@@ -1,0 +1,7 @@
+openai-whisper
+pyttsx3
+sounddevice
+numpy
+openai
+requests
+mempalace
