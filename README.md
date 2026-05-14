@@ -42,7 +42,19 @@ uv sync
 
 The first run will download Whisper and Piper models (~500 MB total).
 
-### 2. Link the systemd service
+### 2. Link the skills globally (optional but recommended)
+
+Skills inside `.opencode/skills/` are only visible if OpenCode runs from
+the project directory. To make them available system-wide:
+
+```bash
+mkdir -p ~/.config/opencode/skills
+ln -s ~/voxlyn-ai/.opencode/skills/* ~/.config/opencode/skills/
+```
+
+Then restart the OpenCode server: `pkill opencode && opencode serve`.
+
+### 3. Link the systemd service
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -53,7 +65,7 @@ systemctl --user enable --now voxlyn-ai
 
 The daemon will start automatically on every login.
 
-### 3. Set up the keyboard shortcut (Gnome)
+### 4. Set up the keyboard shortcut (Gnome)
 
 **Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts → +**
 
