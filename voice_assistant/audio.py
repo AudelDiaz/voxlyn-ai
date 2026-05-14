@@ -49,7 +49,7 @@ def record_audio() -> np.ndarray:
     stream = sd.InputStream(
         samplerate=SAMPLE_RATE, channels=1, blocksize=1024, dtype="float32"
     )
-    print("[Escuchando...]", file=sys.stderr)
+    print("[Listening...]", file=sys.stderr)
     with stream:
         while len(audio_chunks) < max_chunks:
             chunk, _ = stream.read(1024)
@@ -59,11 +59,11 @@ def record_audio() -> np.ndarray:
             else:
                 silent_chunks = 0
             elapsed = len(audio_chunks) * 1024 / SAMPLE_RATE
-            print(f"\r[Grabando... {elapsed:.0f}s]", file=sys.stderr, end="")
+            print(f"\r[Recording... {elapsed:.0f}s]", file=sys.stderr, end="")
             if len(audio_chunks) > min_chunks and silent_chunks > max_silent:
                 break
 
-    print("\r[Transcribiendo...        ]", file=sys.stderr)
+    print("\r[Transcribing...        ]", file=sys.stderr)
     audio = np.concatenate(audio_chunks).flatten()
     indices = np.where(np.abs(audio) > SILENCE_THRESHOLD)[0]
     if len(indices) > 0:

@@ -97,7 +97,7 @@ Press the shortcut, speak, hear the response.
 journalctl --user -u voxlyn-ai -f
 ```
 
-Press your shortcut and say something — you should see `[Escuchando...]`
+Press your shortcut and say something — you should see `[Listening...]`
 in the logs followed by the transcription and response.
 
 ## Project structure
