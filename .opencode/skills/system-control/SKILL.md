@@ -1,5 +1,5 @@
 ---
-name: control-sistema
+name: system-control
 description: >
   Control the local Linux desktop: adjust volume and brightness, open
   applications, take screenshots, manage windows. Uses Bash commands
@@ -26,5 +26,5 @@ When the user asks to control their computer:
 
 - **Suspend / lock**: `systemctl suspend` / `loginctl lock-session`
 
-Always run commands with `subprocess.run` (or equivalent) and confirm
-the result to the user in 1-2 sentences.
+Always run commands with the `Bash` tool and confirm the result
+to the user in 1-2 sentences.

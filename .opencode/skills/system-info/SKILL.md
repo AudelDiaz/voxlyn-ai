@@ -1,5 +1,5 @@
 ---
-name: info-sistema
+name: system-info
 description: >
   Report system diagnostics: memory usage, CPU load, disk space, uptime,
   pending updates, and running processes. Uses standard Linux commands.

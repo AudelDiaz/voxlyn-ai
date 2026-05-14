@@ -1,5 +1,5 @@
 ---
-name: recordatorios
+name: reminders
 description: >
   Set, list, and manage reminders and timers. Reminders are persisted to
   ~/.voice-assistant/reminders.json and use systemd-run for timed alerts.
@@ -13,7 +13,7 @@ When the user asks about reminders or timers:
 ```json
 {
   "id": "unique-string",
-  "text": "Llamar al dentista",
+  "text": "Call the dentist",
   "created_at": "2026-05-13T12:00:00",
   "due_at": "2026-05-13T12:30:00",
   "done": false
@@ -26,7 +26,7 @@ When the user asks about reminders or timers:
    schedule a systemd timer:
    ```
    systemd-run --user --on-active=30min --unit=va-reminder-<id> \
-     notify-send "Recordatorio" "<text>"
+     notify-send "Reminder" "<text>"
    ```
 
 2. **List reminders**: Read the file and present active (non-done) items
@@ -36,4 +36,4 @@ When the user asks about reminders or timers:
 
 4. **Clear all done**: Remove all items with `"done": true`.
 
-Always confirm what you did in 1 sentence.
+Always confirm what you did in one sentence.

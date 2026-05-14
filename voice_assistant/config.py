@@ -33,9 +33,9 @@ SYSTEM_PROMPT: str = os.getenv(
         "in the same language as the user. Do not use markdown formatting.\n\n"
         "You have the following skills available:\n"
         "- web-search: Search the web for current events, facts, and information.\n"
-        "- control-sistema: Adjust system volume, brightness, open applications, take screenshots.\n"
-        "- recordatorios: Set and manage reminders and timers.\n"
-        "- notas-rapidas: Save quick notes to a file.\n"
-        "- info-sistema: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
+        "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"
+        "- reminders: Set and manage reminders and timers.\n"
+        "- quick-notes: Save quick notes to a file.\n"
+        "- system-info: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
     ),
 )

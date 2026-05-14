@@ -119,10 +119,10 @@ The OpenCode agent ships with these built-in skills:
 | Skill | Purpose |
 |-------|---------|
 | `web-search` | Real-time web search for facts and news |
-| `control-sistema` | Volume, brightness, apps, screenshots |
-| `recordatorios` | Persistent reminders with systemd timers |
-| `notas-rapidas` | Voice notes saved to `~/Notas/` |
-| `info-sistema` | System diagnostics (RAM, CPU, disk, updates) |
+| `system-control` | Volume, brightness, apps, screenshots |
+| `reminders` | Persistent reminders with systemd timers |
+| `quick-notes` | Voice notes saved to `~/Notes/` |
+| `system-info` | System diagnostics (RAM, CPU, disk, updates) |
 
 To add your own skill, create a directory under `.opencode/skills/` with a
 `SKILL.md` (see [OpenCode skill docs](https://opencode.ai/docs/skills/)).
