@@ -2,7 +2,10 @@
 import io
 import os
 import re
+import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -28,11 +31,24 @@ SYSTEM_PROMPT = os.getenv(
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 WHISPER_LANG = os.getenv("WHISPER_LANG", "")
-COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "float32")
+COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")
 HOTWORDS = os.getenv("HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API")
 
 VOICES_DIR = Path(__file__).parent / "voices"
 TTS_VOICE = os.getenv("TTS_VOICE", "es_ES-davefx-medium")
+
+
+_t0: float = 0.0
+
+
+def mark(label: str):
+    global _t0
+    now = time.perf_counter()
+    if _t0:
+        print(f"[{now - _t0:.2f}s] {label}", file=sys.stderr)
+    else:
+        print(f"[0.00s] {label}", file=sys.stderr)
+    _t0 = now
 
 
 def get_piper_voice(name: str = TTS_VOICE) -> piper.PiperVoice:
@@ -181,86 +197,93 @@ def speak(text: str, voice: piper.PiperVoice):
     sd.wait()
 
 
-def main():
-    print("[Iniciando servidor OpenCode...]", file=sys.stderr)
-    server = OpencodeServer()
-    try:
+def get_response(
+    text: str,
+    server: OpencodeServer | None = None,
+    session: OpencodeSession | None = None,
+) -> str:
+    if server is None:
+        server = OpencodeServer()
         server.ensure_running()
-    except OpencodeError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    if session is None:
+        session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT)
 
+    cmd_result = handle_session_command(text, session, server)
+    if cmd_result is not None:
+        if cmd_result == "__EXIT__":
+            sys.exit(0)
+        return cmd_result
+
+    mark("Buscando contexto en mempalace...")
+    context = format_context(search_context(text))
+    mark(f"Contexto: {'encontrado' if context else 'vacío'}")
+    full_text = f"{context}\n\n{text}" if context else text
+
+    mark("Enviando a LLM...")
+    response = session.send(full_text)
+    mark("Respuesta recibida")
+
+    mark("Guardando en mempalace...")
+    save_turn(text, response)
+    mark("Guardado")
+    return response
+
+
+def play_listen_tone():
+    duration = 0.2
+    freq = 440
+    sr = 22050
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    tone = (np.sin(2 * np.pi * freq * t) * 0.5).astype(np.float32)
+    for cmd in ("paplay", "aplay"):
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                sf.write(f.name, tone, sr)
+            subprocess.run([cmd, f.name], capture_output=True, timeout=3)
+            os.unlink(f.name)
+            return
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            try:
+                os.unlink(f.name)
+            except OSError:
+                pass
+    sd.play(tone, sr)
+    sd.wait()
+
+
+def main():
+    global _t0
+    _t0 = 0.0
+
+    mark("Cargando Whisper...")
     print(f"[Cargando Whisper ({WHISPER_MODEL}, {COMPUTE_TYPE})...]", file=sys.stderr)
     whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type=COMPUTE_TYPE)
-
+    mark("Cargando voz Piper...")
     print(f"[Cargando voz Piper ({TTS_VOICE})...]", file=sys.stderr)
     piper_voice = get_piper_voice()
 
-    print("[Conectando con OpenCode...]", file=sys.stderr)
+    mark("Tono de inicio")
+    play_listen_tone()
+
+    mark("Grabando audio...")
+    audio = record_audio()
+    if len(audio) < SAMPLE_RATE * 0.3:
+        sys.exit(0)
+
+    server = OpencodeServer()
+    server.ensure_running()
     session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT)
-    sessions_list = OpencodeSession.list_all(server)
-    dev_sessions = [s for s in sessions_list if "voice" in s.get("title", "").lower() or "asistente" in s.get("title", "").lower()]
-    if dev_sessions:
-        last = max(dev_sessions, key=lambda s: s["time"]["updated"])
-        session.session_id = last["id"]
-        session._msg_count = 0
-        title = last.get("title", "sin título")
-        print(f"[Reanudando sesión: {title}]", file=sys.stderr)
-    else:
-        session.create()
-        print("[Nueva sesión creada]", file=sys.stderr)
-    print("[Asistente listo. Presiona Ctrl+C para salir]", file=sys.stderr)
 
-    try:
-        while True:
-            audio = record_audio()
-            if len(audio) < SAMPLE_RATE * 0.3:
-                print("(silencio)", file=sys.stderr)
-                continue
+    mark("Transcribiendo...")
+    user_text = transcribe(whisper, audio)
+    if not user_text:
+        sys.exit(0)
 
-            user_text = transcribe(whisper, audio)
-            if not user_text:
-                continue
+    ai_response = get_response(user_text, server, session)
 
-            hotwords_set = set(w.strip().lower() for w in HOTWORDS.split(","))
-            user_words = set(w.strip(".,¿?¡! ") for w in user_text.lower().split(","))
-            if user_words == hotwords_set or all(
-                w in hotwords_set for w in user_words - {"open", "source"}
-            ):
-                print("(hotwords ignoradas)", file=sys.stderr)
-                continue
-
-            cmd_result = handle_session_command(user_text, session, server)
-            if cmd_result == "__EXIT__":
-                print("[Adiós!]", file=sys.stderr)
-                break
-            if cmd_result is not None:
-                speak(cmd_result, piper_voice)
-                continue
-
-            context_results = search_context(user_text)
-            context_text = format_context(context_results)
-            message = user_text
-            if context_text:
-                message = f"{context_text}\n\nUser query: {user_text}"
-
-            try:
-                ai_response = session.send(message)
-            except OpencodeError as e:
-                print(f"Error: {e}", file=sys.stderr)
-                speak("Hubo un error de conexión con OpenCode.", piper_voice)
-                continue
-
-            try:
-                save_turn(user_text, clean_markdown(ai_response))
-            except Exception as e:
-                print(f"[MemPalace save error: {e}]", file=sys.stderr)
-
-            speak(ai_response, piper_voice)
-    except KeyboardInterrupt:
-        print("\n[Adiós!]", file=sys.stderr)
-    finally:
-        server.stop()
+    mark("Sintetizando y reproduciendo TTS...")
+    speak(ai_response, piper_voice)
+    mark("Listo")
 
 
 if __name__ == "__main__":
