@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger client for the voice assistant daemon.
+"""voxlyn-ai trigger: keyboard-shortcut client.
 
 Connects to the daemon's Unix socket, sends a ``record`` command,
 and exits. Designed to be bound to a keyboard shortcut.

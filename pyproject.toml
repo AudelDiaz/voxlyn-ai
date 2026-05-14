@@ -1,7 +1,7 @@
 [project]
-name = "voice-assistant"
+name = "voxlyn-ai"
 version = "0.2.0"
-description = "Local voice assistant with STT (Whisper), LLM (OpenCode), and TTS (Piper)"
+description = "Hands-free AI voice assistant for Linux. Whisper STT, OpenCode LLM, Piper TTS, persistent daemon with agent skills."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []

@@ -64,7 +64,7 @@ wheels = [
 ]
 
 [[package]]
-name = "voice-assistant"
+name = "voxlyn-ai"
 version = "0.2.0"
 source = { virtual = "." }
 

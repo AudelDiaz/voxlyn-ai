@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Persistent voice assistant daemon.
+"""voxlyn-ai daemon: persistent voice assistant service.
 
 Listens on a Unix socket for "record" commands, processes the full
 voice pipeline (STT → LLM → TTS), and reloads the socket immediately.
@@ -35,8 +35,8 @@ from voice_assistant.transcription import transcribe
 
 DATA_DIR = Path.home() / ".voice-assistant"
 SOCKET_PATH = DATA_DIR / "daemon.sock"
-LOG_PATH = DATA_DIR / "voice-assistant.log"
-ERR_PATH = DATA_DIR / "voice-assistant.err"
+LOG_PATH = DATA_DIR / "voxlyn-ai.log"
+ERR_PATH = DATA_DIR / "voxlyn-ai.err"
 
 _busy: bool = False
 _shutdown: bool = False

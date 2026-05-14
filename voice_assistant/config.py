@@ -29,7 +29,7 @@ OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
 SYSTEM_PROMPT: str = os.getenv(
     "SYSTEM_PROMPT",
     (
-        "You are a helpful voice assistant. Respond concisely in 1-3 sentences "
+        "You are voxlyn, a helpful AI voice assistant. Respond concisely in 1-3 sentences "
         "in the same language as the user. Do not use markdown formatting.\n\n"
         "You have the following skills available:\n"
         "- web-search: Search the web for current events, facts, and information.\n"

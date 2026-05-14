@@ -1,1 +1,1 @@
-"""Voice assistant with local STT, LLM, and TTS."""
+"""voxlyn-ai: hands-free AI voice assistant for Linux."""

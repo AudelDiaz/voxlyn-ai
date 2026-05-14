@@ -1,10 +1,9 @@
-# Voice Assistant
+# voxlyn-ai
 
-Local voice assistant powered by **Whisper** (STT), **OpenCode** (LLM),
-**Piper** (TTS), and **mempalace** (memory).
+Hands-free AI voice assistant for Linux. Press a key, speak, get an AI
+voice response — entirely local.
 
-Triggered via keyboard shortcut — press a key, speak, and get an AI
-voice response.
+**Whisper** → STT · **OpenCode** → LLM agent · **Piper** → TTS
 
 ## Architecture
 
@@ -12,77 +11,82 @@ voice response.
 Trigger (keyboard shortcut)
   │  sends "record" via Unix socket
   ▼
-Daemon (persistent service)
+Daemon (persistent systemd service)
   ├── Whisper (faster-whisper, int8)  ← speech-to-text
-  ├── OpenCode REST API               ← LLM inference
-  ├── Mempalace                       ← conversational memory
-  └── Piper TTS                       ← text-to-speech
+  ├── OpenCode agent                  ← LLM with skills + memory
+  ├── Piper TTS                       ← text-to-speech
+  └── Mempalace                       ← conversational memory
 ```
 
 ## Quick start
 
 ### Prerequisites
 
-- Python ≥ 3.13 (managed by `uv`)
+- Python ≥ 3.13 ([uv](https://docs.astral.sh/uv/))
 - [OpenCode](https://opencode.ai) server running on `localhost:4096`
 
 ### Install
 
 ```bash
+git clone https://github.com/AudelDiaz/voxlyn-ai.git
+cd voxlyn-ai
 uv sync
 ```
 
-### Run the daemon (systemd user service)
+### Run the daemon
 
 ```bash
-systemctl --user enable --now voice-assistant
+systemctl --user enable --now voxlyn-ai
 ```
 
 ### Keyboard shortcut (Gnome)
 
-1. **Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts**
-2. Add a new shortcut:
-   - **Name:** Voice Assistant
-   - **Command:** ``` uv run python /path/to/voice-assistant/trigger.py ```
-   - **Shortcut:** choose a keybinding (e.g. `Alt+Z`)
+**Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts → +**
 
-Press the shortcut, speak, and the assistant responds.
+| Field | Value |
+|-------|-------|
+| Name | voxlyn-ai |
+| Command | ``` uv run --project /home/audeldiaz/voxlyn-ai /home/audeldiaz/voxlyn-ai/trigger.py ``` |
+| Shortcut | e.g. `Alt+Z` |
+
+Press the shortcut, speak, hear the response.
 
 ## Project structure
 
 ```
-voice-assistant/
-├── voice_assistant/           # Library package
+voxlyn-ai/
+├── voice_assistant/           # Python package
 │   ├── config.py              # Environment variables and constants
 │   ├── audio.py               # Recording, TTS, tone
-│   ├── transcription.py       # Whisper-based speech-to-text
+│   ├── transcription.py       # Whisper STT
 │   ├── llm.py                 # OpenCode API interaction
 │   ├── commands.py            # In-session voice commands
 │   ├── memory.py              # Mempalace persistence
-│   └── utils.py               # Markdown cleaning
-├── daemon.py                  # Daemon entry point
-├── trigger.py                 # Trigger entry point (keyboard shortcut)
-├── tests/                     # Unit tests (pytest)
+│   └── utils.py               # Markdown cleaning, notifications
+├── daemon.py                  # Persistent daemon entry point
+├── trigger.py                 # Keyboard-shortcut client
+├── tests/                     # pytest suite
 │   ├── test_utils.py
+│   ├── test_transcription.py
 │   └── test_commands.py
 ├── .opencode/
-│   └── skills/                # OpenCode agent skills
+│   └── skills/                # Agent skills (5 built-in)
 │       ├── web-search/
 │       ├── control-sistema/
 │       ├── recordatorios/
 │       ├── notas-rapidas/
 │       └── info-sistema/
-├── voices/                    # Piper TTS voice models
+├── voices/                    # Piper voices (downloaded on first run)
 ├── opencode_client.py         # OpenCode REST client
 ├── mempalace_memory.py        # Mempalace integration
-├── voice-assistant.service    # systemd user unit
+├── voxlyn-ai.service          # systemd user unit
 ├── pyproject.toml
 └── README.md
 ```
 
 ## Skills
 
-The OpenCode agent has access to these built-in skills:
+The OpenCode agent ships with these built-in skills:
 
 | Skill | Purpose |
 |-------|---------|
@@ -102,9 +106,9 @@ uv run pytest
 
 ```bash
 # Live daemon logs
-journalctl --user -u voice-assistant -f
+journalctl --user -u voxlyn-ai -f
 
 # Rotated log files
-tail -f ~/.voice-assistant/voice-assistant.log
-tail -f ~/.voice-assistant/voice-assistant.err
+tail -f ~/.voice-assistant/voxlyn-ai.log
+tail -f ~/.voice-assistant/voxlyn-ai.err
 ```

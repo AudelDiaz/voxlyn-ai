@@ -7,7 +7,7 @@ from mempalace.palace import get_collection
 from mempalace.searcher import search_memories
 
 PALACE_PATH = os.path.expanduser("~/.mempalace/palace")
-DEFAULT_WING = "voice_assistant"
+DEFAULT_WING = "voxlyn_ai"
 DEFAULT_ROOM = "conversations"
 SEARCH_LIMIT = 5
 
@@ -28,7 +28,7 @@ def save_turn(
         content=content,
         source_file=source_file,
         chunk_index=0,
-        agent="voice_assistant",
+        agent="voxlyn",
     )
 
 
