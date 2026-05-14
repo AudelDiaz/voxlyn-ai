@@ -3,7 +3,7 @@ Description=Voice Assistant Daemon
 After=sound.target
 
 [Service]
-ExecStart=%h/voice-assistant/.venv/bin/python %h/voice-assistant/assistant_daemon.py
+ExecStart=%h/voice-assistant/.venv/bin/python %h/voice-assistant/daemon.py
 WorkingDirectory=%h/voice-assistant
 Restart=on-failure
 RestartSec=3

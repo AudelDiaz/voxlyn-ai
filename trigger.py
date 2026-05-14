@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
-import os
+"""Trigger client for the voice assistant daemon.
+
+Connects to the daemon's Unix socket, sends a ``record`` command,
+and exits. Designed to be bound to a keyboard shortcut.
+"""
+
 import socket
+import subprocess
 import sys
 from pathlib import Path
 
 SOCKET_PATH = Path.home() / ".voice-assistant" / "daemon.sock"
 
 
-def main():
+def main() -> None:
+    """Connect to the daemon socket and request a recording cycle."""
     if not SOCKET_PATH.exists():
         print("Error: Voice Assistant daemon is not running.", file=sys.stderr)
         try:
-            import subprocess
             subprocess.run(
-                ["notify-send", "-u", "critical", "Voice Assistant", "Daemon not running"],
+                [
+                    "notify-send",
+                    "-u",
+                    "critical",
+                    "Voice Assistant",
+                    "Daemon not running",
+                ],
                 timeout=2,
             )
         except Exception:

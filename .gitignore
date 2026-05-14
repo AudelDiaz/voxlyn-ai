@@ -1,14 +1,23 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
+*.pyc
 build/
 dist/
 wheels/
 *.egg-info
+.pytest_cache/
 
-# Virtual environments
+# Virtual env
 .venv
 
-# MemPalace per-project files (issue #185)
+# Piper voice models (downloaded on first run)
+voices/*.onnx
+voices/*.onnx.json
+
+# Daemon socket
+*.sock
+
+# MemPalace per-project files
 mempalace.yaml
 entities.json

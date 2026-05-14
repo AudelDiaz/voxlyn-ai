@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""Persistent voice assistant daemon.
+
+Listens on a Unix socket for "record" commands, processes the full
+voice pipeline (STT → LLM → TTS), and reloads the socket immediately.
+"""
+
 import logging
 import logging.handlers
 import os
@@ -8,34 +14,36 @@ import sys
 import threading
 from pathlib import Path
 
-import numpy as np
 import piper
 from faster_whisper import WhisperModel
 
 from opencode_client import OpencodeServer, OpencodeSession
-from assistant_local import (
-    record_audio,
-    transcribe,
-    get_response,
-    speak,
-    play_listen_tone,
-    SAMPLE_RATE,
-    WHISPER_MODEL,
-    COMPUTE_TYPE,
-    TTS_VOICE,
+from voice_assistant.audio import (
     get_piper_voice,
+    play_listen_tone,
+    record_audio,
+    speak,
 )
+from voice_assistant.config import (
+    COMPUTE_TYPE,
+    SAMPLE_RATE,
+    TTS_VOICE,
+    WHISPER_MODEL,
+)
+from voice_assistant.llm import get_response
+from voice_assistant.transcription import transcribe
 
 DATA_DIR = Path.home() / ".voice-assistant"
 SOCKET_PATH = DATA_DIR / "daemon.sock"
 LOG_PATH = DATA_DIR / "voice-assistant.log"
 ERR_PATH = DATA_DIR / "voice-assistant.err"
 
-_busy = False
-_shutdown = False
+_busy: bool = False
+_shutdown: bool = False
 
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
+    """Configure rotating file handlers and stderr for the daemon."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     formatter = logging.Formatter(
@@ -70,7 +78,8 @@ def setup_logging():
 log: logging.Logger = setup_logging()
 
 
-def cleanup():
+def cleanup() -> None:
+    """Clean up the socket file and flag shutdown."""
     global _shutdown
     _shutdown = True
     try:
@@ -80,7 +89,8 @@ def cleanup():
     log.info("Daemon stopped")
 
 
-def handle_signal(signum, frame):
+def handle_signal(signum: int, frame: object) -> None:
+    """Graceful shutdown on SIGTERM / SIGINT."""
     log.info(f"Received signal {signum}, shutting down...")
     cleanup()
     sys.exit(0)
@@ -91,7 +101,8 @@ def process_pipeline(
     piper_voice: piper.PiperVoice,
     server: OpencodeServer,
     session: OpencodeSession,
-):
+) -> None:
+    """Run one full voice cycle: tone → record → transcribe → LLM → speak."""
     global _busy
     try:
         _busy = True
@@ -127,7 +138,8 @@ def handle_client(
     piper_voice: piper.PiperVoice,
     server: OpencodeServer,
     session: OpencodeSession,
-):
+) -> None:
+    """Read a command from the client and dispatch the pipeline."""
     try:
         data = conn.recv(1024).decode().strip()
         if data != "record":
@@ -151,7 +163,8 @@ def handle_client(
         log.exception("Error handling client")
 
 
-def main():
+def main() -> None:
+    """Daemon entry point: load models, bind socket, accept commands."""
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 

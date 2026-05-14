@@ -1,91 +1,110 @@
-# Voice Assistant CLI
+# Voice Assistant
 
-Two modes:
+Local voice assistant powered by **Whisper** (STT), **OpenCode** (LLM),
+**Piper** (TTS), and **mempalace** (memory).
 
-| Mode | Script | STT | Use case |
-|------|--------|-----|----------|
-| Built-in mic | `assistant.py` | Whisper (local) | Standalone voice assistant |
-| Vibe Typer | `assistant_vibe.py` | Vibe Typer (system-wide) | Dictate into any app, get AI voice replies |
+Triggered via keyboard shortcut — press a key, speak, and get an AI
+voice response.
 
-## Setup
+## Architecture
 
-```bash
-pip install openai pyttsx3 sounddevice numpy openai-whisper
+```
+Trigger (keyboard shortcut)
+  │  sends "record" via Unix socket
+  ▼
+Daemon (persistent service)
+  ├── Whisper (faster-whisper, int8)  ← speech-to-text
+  ├── OpenCode REST API               ← LLM inference
+  ├── Mempalace                       ← conversational memory
+  └── Piper TTS                       ← text-to-speech
 ```
 
-For local LLM mode (optional):
-```bash
-pip install transformers torch
-```
+## Quick start
 
-## Mode 1: Built-in Mic (assistant.py)
+### Prerequisites
 
-Uses local Whisper for speech-to-text. Speak directly into your mic.
+- Python ≥ 3.13 (managed by `uv`)
+- [OpenCode](https://opencode.ai) server running on `localhost:4096`
 
-```bash
-export DEEPSEEK_API_KEY="sk-..."
-python assistant.py
-```
-
-## Mode 2: Vibe Typer (assistant_vibe.py)
-
-Uses [Vibe Typer](https://vibetyper.com) (desktop app) for speech-to-text. Press a hotkey, speak, and text appears in the terminal.
-
-### Setup Vibe Typer on Linux
+### Install
 
 ```bash
-wget -O VibeTyper.AppImage https://vibetyper.com/download/linux
-chmod +x VibeTyper.AppImage
-./VibeTyper.AppImage
+uv sync
 ```
 
-Default hotkey: **Alt+Space**
-
-### Run the script
+### Run the daemon (systemd user service)
 
 ```bash
-export DEEPSEEK_API_KEY="sk-..."
-python assistant_vibe.py
+systemctl --user enable --now voice-assistant
 ```
 
-**Workflow:**
-1. Script waits for text input
-2. Press **Alt+Space** (Vibe Typer hotkey) and speak your question
-3. Vibe Typer types the transcription into the terminal
-4. Script sends it to DeepSeek and speaks the response via TTS
+### Keyboard shortcut (Gnome)
 
-## Mode 3: Dictation (dictate.py)
+1. **Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts**
+2. Add a new shortcut:
+   - **Name:** Voice Assistant
+   - **Command:** ``` uv run python /path/to/voice-assistant/trigger.py ```
+   - **Shortcut:** choose a keybinding (e.g. `Alt+Z`)
 
-Speak → Whisper transcribes → types into the focused window (like Vibe Typer / Handy).
+Press the shortcut, speak, and the assistant responds.
 
-Requires `wtype` (Wayland) or `xdotool` (X11):
+## Project structure
+
+```
+voice-assistant/
+├── voice_assistant/           # Library package
+│   ├── config.py              # Environment variables and constants
+│   ├── audio.py               # Recording, TTS, tone
+│   ├── transcription.py       # Whisper-based speech-to-text
+│   ├── llm.py                 # OpenCode API interaction
+│   ├── commands.py            # In-session voice commands
+│   ├── memory.py              # Mempalace persistence
+│   └── utils.py               # Markdown cleaning
+├── daemon.py                  # Daemon entry point
+├── trigger.py                 # Trigger entry point (keyboard shortcut)
+├── tests/                     # Unit tests (pytest)
+│   ├── test_utils.py
+│   └── test_commands.py
+├── .opencode/
+│   └── skills/                # OpenCode agent skills
+│       ├── web-search/
+│       ├── control-sistema/
+│       ├── recordatorios/
+│       ├── notas-rapidas/
+│       └── info-sistema/
+├── voices/                    # Piper TTS voice models
+├── opencode_client.py         # OpenCode REST client
+├── mempalace_memory.py        # Mempalace integration
+├── voice-assistant.service    # systemd user unit
+├── pyproject.toml
+└── README.md
+```
+
+## Skills
+
+The OpenCode agent has access to these built-in skills:
+
+| Skill | Purpose |
+|-------|---------|
+| `web-search` | Real-time web search for facts and news |
+| `control-sistema` | Volume, brightness, apps, screenshots |
+| `recordatorios` | Persistent reminders with systemd timers |
+| `notas-rapidas` | Voice notes saved to `~/Notas/` |
+| `info-sistema` | System diagnostics (RAM, CPU, disk, updates) |
+
+## Testing
 
 ```bash
-# CachyOS / Arch
-sudo pacman -S wtype
-# or for X11
-sudo pacman -S xdotool
-
-pip install sounddevice numpy openai-whisper
+uv run pytest
 ```
 
-### GNOME shortcut setup (Wayland workaround)
+## Logs
 
-1. `Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts`
-2. Add new shortcut
-   - **Name:** `Dictate`
-   - **Command:** `python /path/to/dictate.py`
-   - **Shortcut:** `Ctrl+Super+Space` (o el que prefieras)
-3. Ahora presiona ese atajo, habla, y el texto aparecerá donde tengas el cursor.
+```bash
+# Live daemon logs
+journalctl --user -u voice-assistant -f
 
-### Integrar con DeepSeek (asistente + dictado)
-
-El script `dictate.py` solo dicta texto. Si quieres que el texto se envíe al asistente, combínalo con `assistant_vibe.py`:
-
-1. Enfoca la terminal donde corre `assistant_vibe.py`
-2. Presiona el atajo de dictado → habla → Whisper transcribe → `wtype` escribe en la terminal
-3. `assistant_vibe.py` recibe el texto, llama a DeepSeek y responde por voz
-
-## DeepSeek API
-
-Free tier available at https://platform.deepseek.com
+# Rotated log files
+tail -f ~/.voice-assistant/voice-assistant.log
+tail -f ~/.voice-assistant/voice-assistant.err
+```

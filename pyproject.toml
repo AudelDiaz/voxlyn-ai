@@ -1,7 +1,13 @@
 [project]
 name = "voice-assistant"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Local voice assistant with STT (Whisper), LLM (OpenCode), and TTS (Piper)"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
