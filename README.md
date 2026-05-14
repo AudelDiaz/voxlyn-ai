@@ -5,6 +5,8 @@ voice response — entirely local.
 
 **Whisper** → STT · **OpenCode** → LLM agent · **Piper** → TTS
 
+Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQTR7E9qg).
+
 ## Architecture
 
 ```
