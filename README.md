@@ -3,7 +3,7 @@
 Hands-free AI voice assistant for Linux. Press a key, speak, get an AI
 voice response — entirely local.
 
-**Whisper** → STT · **OpenCode** → LLM agent · **Piper** → TTS
+**Whisper** → STT · **OpenCode** → LLM agent · **Kokoro** → TTS
 
 Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQTR7E9qg).
 
@@ -13,7 +13,7 @@ Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQ
 |-------|-----------|------|
 | Speech-to-Text | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (int8) | Transcribe mic audio to text |
 | Agent / LLM | [OpenCode](https://opencode.ai) + any backend | AI agent with skills and memory |
-| Text-to-Speech | [Piper](https://github.com/rhasspy/piper) TTS | Synthesize natural voice responses |
+| Text-to-Speech | [Kokoro](https://github.com/hexgrad/kokoro) TTS (82M) | Multi-language voice synthesis (es + en) |
 | Memory | Mempalace (JSON ring buffer) | Persistent conversation history |
 | Runtime | Python 3.13+ · [uv](https://docs.astral.sh/uv/) · systemd | Dependency management and daemon lifecycle |
 | Audio I/O | sounddevice · soundfile · PulseAudio/PipeWire | Capture and playback |
@@ -27,7 +27,7 @@ Trigger (keyboard shortcut)
 Daemon (persistent systemd service)
   ├── Whisper (faster-whisper, int8)  ← speech-to-text
   ├── OpenCode agent                  ← LLM with skills + memory
-  ├── Piper TTS                       ← text-to-speech
+  ├── Kokoro TTS                      ← text-to-speech (multi-language)
   └── Mempalace (JSON memory)         ← conversational history + rooms
 ```
 
@@ -51,12 +51,13 @@ cd voxlyn-ai
 uv sync
 ```
 
-The first run will download Whisper and Piper models (~500 MB total).
+The first run will download Whisper and Kokoro models (~450 MB total).
 
-### 2. Link the skills globally (optional but recommended)
+### 2. Link the skills globally (optional)
 
-Skills inside `.opencode/skills/` are only visible if OpenCode runs from
-the project directory. To make them available system-wide:
+The daemon runs from the project directory, so `.opencode/skills/` is
+auto-discovered. Only link if you want skills available outside the
+project (e.g. `opencode run` from other folders):
 
 ```bash
 mkdir -p ~/.config/opencode/skills
@@ -116,7 +117,7 @@ voxlyn-ai/
 ├── trigger.py                 # Keyboard-shortcut client
 ├── tests/                     # pytest suite
 ├── .opencode/skills/          # Agent skills (5 built-in)
-├── voices/                    # Piper voices (downloaded on first run)
+├── .python-version            # Python 3.12 for Kokoro/spacy compat
 ├── opencode_client.py         # OpenCode REST client
 ├── mempalace_memory.py        # JSON conversation memory (500-turn ring buffer)
 ├── mempalace.yaml             # Room definitions for context retrieval
@@ -132,8 +133,10 @@ voxlyn-ai/
 | `WHISPER_MODEL` | `small` | Model size: `tiny`, `base`, `small`, `medium`, `large` |
 | `COMPUTE_TYPE` | `int8` | Quantization: `int8`, `float16`, `float32` |
 | `WHISPER_LANG` | auto | Force language code (`es`, `en`, …) or empty for auto |
-| `TTS_VOICE` | `es_ES-davefx-medium` | Piper voice name |
+| `KOKORO_VOICE_EN` | `af_heart` | Kokoro English voice preset |
+| `KOKORO_VOICE_ES` | `ef_dora` | Kokoro Spanish voice preset |
 | `OPENCODE_URL` | `http://localhost:4096` | OpenCode server URL |
+| `VARIANT` | `""` (default) | OpenCode reasoning variant: `low`, `medium`, `high`, `max` |
 | `SYSTEM_PROMPT` | *(built-in)* | Override the LLM system prompt |
 
 ## Skills
@@ -193,7 +196,7 @@ for better context retrieval:
 | `skills` | Agent skills reference |
 | `daemon` | systemd service and socket protocol |
 | `memory` | Conversation backend details |
-| `voices` | Piper TTS voice models |
+| `voices` | Kokoro TTS voice cache (~/.cache/huggingface/) |
 | `tests` | pytest suite metadata |
 | `general` | Catch-all |
 

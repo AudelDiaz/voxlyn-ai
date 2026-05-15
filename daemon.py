@@ -2,19 +2,23 @@
 """voxlyn-ai daemon: persistent voice assistant service.
 
 Listens on a Unix socket for "record" commands, processes the full
-voice pipeline (STT → LLM → TTS), and reloads the socket immediately.
+voice pipeline (STT -> LLM -> TTS), and reloads the socket immediately.
 """
 
 import logging
 import logging.handlers
 import os
+import secrets
 import signal
 import socket
 import sys
 import threading
 from pathlib import Path
 
-import piper
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+
 from faster_whisper import WhisperModel
 
 from opencode_client import OpencodeServer, OpencodeSession
@@ -27,7 +31,6 @@ from voice_assistant.audio import (
 from voice_assistant.config import (
     COMPUTE_TYPE,
     SAMPLE_RATE,
-    TTS_VOICE,
     WHISPER_MODEL,
 )
 from voice_assistant.llm import get_response
@@ -40,6 +43,7 @@ ERR_PATH = DATA_DIR / "voxlyn-ai.err"
 
 _busy: bool = False
 _shutdown: bool = False
+_server: OpencodeServer | None = None
 
 
 def setup_logging() -> logging.Logger:
@@ -79,13 +83,15 @@ log: logging.Logger = setup_logging()
 
 
 def cleanup() -> None:
-    """Clean up the socket file and flag shutdown."""
+    """Clean up the socket file, stop the OpenCode server, and flag shutdown."""
     global _shutdown
     _shutdown = True
     try:
         SOCKET_PATH.unlink()
     except OSError:
         pass
+    if _server:
+        _server.stop()
     log.info("Daemon stopped")
 
 
@@ -98,7 +104,6 @@ def handle_signal(signum: int, frame: object) -> None:
 
 def process_pipeline(
     whisper: WhisperModel,
-    piper_voice: piper.PiperVoice,
     server: OpencodeServer,
     session: OpencodeSession,
 ) -> None:
@@ -124,7 +129,7 @@ def process_pipeline(
         ai_response = get_response(user_text, server, session)
         log.info(f"Assistant: {ai_response}")
 
-        speak(ai_response, piper_voice)
+        speak(ai_response, user_text=user_text)
         log.info("Pipeline finished")
     except Exception:
         log.exception("Pipeline error")
@@ -135,7 +140,6 @@ def process_pipeline(
 def handle_client(
     conn: socket.socket,
     whisper: WhisperModel,
-    piper_voice: piper.PiperVoice,
     server: OpencodeServer,
     session: OpencodeSession,
 ) -> None:
@@ -156,7 +160,7 @@ def handle_client(
 
         threading.Thread(
             target=process_pipeline,
-            args=(whisper, piper_voice, server, session),
+            args=(whisper, server, session),
             daemon=True,
         ).start()
     except Exception:
@@ -165,6 +169,8 @@ def handle_client(
 
 def main() -> None:
     """Daemon entry point: load models, bind socket, accept commands."""
+    global _server
+
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
@@ -172,12 +178,18 @@ def main() -> None:
     whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type=COMPUTE_TYPE)
     log.info("Whisper loaded")
 
-    log.info(f"Loading Piper voice ({TTS_VOICE})...")
-    piper_voice = get_piper_voice()
-    log.info("Piper loaded")
+    log.info("Loading Kokoro TTS pipelines...")
+    get_piper_voice()
+    log.info("Kokoro loaded")
+
+    if "OPENCODE_SERVER_PASSWORD" not in os.environ:
+        os.environ["OPENCODE_SERVER_PASSWORD"] = secrets.token_urlsafe(32)
+    if "OPENCODE_SERVER_USERNAME" not in os.environ:
+        os.environ["OPENCODE_SERVER_USERNAME"] = "voxlyn"
 
     log.info("Connecting to OpenCode...")
     server = OpencodeServer()
+    _server = server
     server.ensure_running()
     session = OpencodeSession(server, system_prompt="")
     log.info("OpenCode connected")
@@ -196,7 +208,7 @@ def main() -> None:
     while not _shutdown:
         try:
             conn, _ = sock.accept()
-            handle_client(conn, whisper, piper_voice, server, session)
+            handle_client(conn, whisper, server, session)
         except socket.timeout:
             continue
         except OSError:

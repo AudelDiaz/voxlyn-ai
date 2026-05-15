@@ -1,7 +1,6 @@
 """Application-wide configuration and environment variables."""
 
 import os
-from pathlib import Path
 
 # --- Audio recording ---
 SAMPLE_RATE: int = 16000
@@ -18,12 +17,37 @@ HOTWORDS: str = os.getenv(
     "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API"
 )
 
-# --- Piper TTS ---
-VOICES_DIR: Path = Path(__file__).resolve().parent.parent / "voices"
-TTS_VOICE: str = os.getenv("TTS_VOICE", "es_ES-davefx-medium")
+# --- Kokoro TTS ---
+KOKORO_LANG_EN: str = "a"  # American English
+KOKORO_LANG_ES: str = "e"  # Spanish
+KOKORO_VOICE_EN: str = os.getenv("KOKORO_VOICE_EN", "af_heart")
+KOKORO_VOICE_ES: str = os.getenv("KOKORO_VOICE_ES", "ef_dora")
 
 # --- OpenCode ---
 OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
+
+# --- OpenCode variant (reasoning effort) ---
+VARIANT: str = os.getenv("VARIANT", "")
+
+VARIANT_NAMES: dict[str, str] = {
+    "": "default — sin razonamiento extra, respuesta inmediata",
+    "low": "baja — respuestas rápidas, mínimo esfuerzo",
+    "medium": "media — razonamiento balanceado, uso general",
+    "high": "alta — razonamiento profundo, análisis complejo",
+    "max": "máxima — esfuerzo máximo, tareas muy complejas",
+}
+
+AUTO_VARIANT_KEYWORDS: tuple[str, ...] = (
+    "analiza",
+    "explica detalladamente", "explícame",
+    "código", "codigo", "programa", "implementa",
+    "depura", "debug", "error",
+    "compara", "comparación",
+    "por qué", "por que", "cómo funciona", "como funciona",
+    "arquitectura", "diseña", "diseñar",
+    "optimiza", "refactoriza",
+    "diagnostica", "investiga",
+)
 
 # --- System prompt sent to the LLM ---
 SYSTEM_PROMPT: str = os.getenv(

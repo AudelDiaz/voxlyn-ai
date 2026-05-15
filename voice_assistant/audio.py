@@ -1,6 +1,5 @@
 """Microphone recording, tone generation, and TTS playback."""
 
-import io
 import os
 import subprocess
 import sys
@@ -8,29 +7,57 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-import piper
-import piper.download_voices
 import sounddevice as sd
 import soundfile as sf
 
 from voice_assistant.config import (
-    SAMPLE_RATE,
-    SILENCE_THRESHOLD,
-    SILENCE_DURATION,
-    MIN_RECORD_SECONDS,
+    KOKORO_LANG_EN,
+    KOKORO_LANG_ES,
+    KOKORO_VOICE_EN,
+    KOKORO_VOICE_ES,
     MAX_RECORD_SECONDS,
-    TTS_VOICE,
-    VOICES_DIR,
+    MIN_RECORD_SECONDS,
+    SAMPLE_RATE,
+    SILENCE_DURATION,
+    SILENCE_THRESHOLD,
 )
 
+_pipelines: dict[str, object] = {}
 
-def get_piper_voice(name: str = TTS_VOICE) -> piper.PiperVoice:
-    """Load (or download and load) a Piper TTS voice model."""
-    model_path = VOICES_DIR / f"{name}.onnx"
-    if not model_path.exists():
-        print(f"Downloading voice {name}...", file=sys.stderr)
-        piper.download_voices.download_voice(name, download_dir=VOICES_DIR)
-    return piper.PiperVoice.load(model_path)
+
+def _detect_language(text: str) -> str:
+    """Return ``'es'`` or ``'en'`` based on text content."""
+    if any(c in text for c in "ñáéíóúü¿¡"):
+        return "es"
+    es_words = {"el", "la", "los", "las", "un", "una", "y", "e", "o", "u",
+                "de", "del", "en", "por", "para", "con", "sin", "es", "son",
+                "que", "como", "muy", "más", "pero", "todo", "este", "esta",
+                "eres", "tiene", "puede", "hace", "dice", "sabe", "quiere",
+                "gracias", "hola", "adiós", "adios", "se", "le", "lo", "la"}
+    en_words = {"the", "a", "an", "and", "or", "in", "on", "at", "to", "for",
+                "of", "with", "is", "are", "was", "were", "it", "its", "this",
+                "that", "these", "those", "very", "more", "but", "not", "you",
+                "your", "will", "can", "have", "has", "had", "do", "does", "did"}
+    words = set(text.lower().split())
+    es_score = len(words & es_words)
+    en_score = len(words & en_words)
+    if es_score > en_score:
+        return "es"
+    return "en"
+
+
+def _get_pipeline(lang: str):
+    """Return a cached Kokoro pipeline for the given language code."""
+    if lang not in _pipelines:
+        from kokoro import KPipeline
+        _pipelines[lang] = KPipeline(lang_code=lang)
+    return _pipelines[lang]
+
+
+def get_piper_voice():
+    """Initialize Kokoro pipelines at startup (alias for daemon compat)."""
+    _get_pipeline(KOKORO_LANG_EN)
+    _get_pipeline(KOKORO_LANG_ES)
 
 
 def record_audio() -> np.ndarray:
@@ -71,8 +98,11 @@ def record_audio() -> np.ndarray:
     return audio
 
 
-def speak(text: str, voice: piper.PiperVoice) -> None:
-    """Synthesize *text* with Piper and play it through the speakers.
+def speak(text: str, user_text: str = "") -> None:
+    """Synthesize *text* with Kokoro and play it through the speakers.
+
+    Selects language based on *user_text* (the LLM mirrors the user's
+    language per system prompt). Falls back to detecting from *text*.
 
     If the response contains a Markdown code block the code is sent to a
     desktop notification instead of being read aloud.
@@ -91,21 +121,18 @@ def speak(text: str, voice: piper.PiperVoice) -> None:
     tts_text = clean_markdown(tts_text)
     print(f"Asistente: {tts_text}", file=sys.stderr)
 
-    buf = io.BytesIO()
-    with sf.SoundFile(
-        buf,
-        mode="w",
-        samplerate=voice.config.sample_rate,
-        channels=1,
-        format="WAV",
-        subtype="PCM_16",
-    ) as wav:
-        for chunk in voice.synthesize(tts_text):
-            wav.write(chunk.audio_int16_array)
-    buf.seek(0)
-    data, sr = sf.read(buf)
-    sd.play(data, sr)
-    sd.wait()
+    source = tts_text or user_text
+    lang = _detect_language(source)
+    if lang == "es":
+        pipeline = _get_pipeline(KOKORO_LANG_ES)
+        voice = KOKORO_VOICE_ES
+    else:
+        pipeline = _get_pipeline(KOKORO_LANG_EN)
+        voice = KOKORO_VOICE_EN
+
+    for result in pipeline(tts_text, voice=voice):
+        sd.play(result.audio, 24000)
+        sd.wait()
 
 
 def play_listen_tone() -> None:

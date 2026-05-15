@@ -1,6 +1,31 @@
 """In-session voice commands that bypass the LLM."""
 
 from opencode_client import OpencodeServer, OpencodeSession
+from voice_assistant.config import VARIANT_NAMES
+
+_VARIANT_ALIASES: dict[str, str] = {
+    "default": "",
+    "normal": "",
+    "por defecto": "",
+    "baja": "low",
+    "bajo": "low",
+    "rapido": "low",
+    "rápido": "low",
+    "media": "medium",
+    "medio": "medium",
+    "alta": "high",
+    "alto": "high",
+    "razonamiento": "high",
+    "maxima": "max",
+    "máxima": "max",
+    "maximo": "max",
+    "máximo": "max",
+    "max": "max",
+}
+
+
+def _variant_label(key: str) -> str:
+    return VARIANT_NAMES.get(key, key)
 
 
 def handle_session_command(
@@ -56,5 +81,18 @@ def handle_session_command(
 
     if any(palabra in t for palabra in ("salir", "exit", "quit", "adiós", "adios")):
         return "__EXIT__"
+
+    if t in ("lista variantes", "listar variantes", "que variantes hay", "muestra las variantes"):
+        current = session.variant if hasattr(session, "variant") else ""
+        desc = _variant_label(current)
+        variants = "; ".join(f"{k} ({v})" for k, v in VARIANT_NAMES.items())
+        return f"Las variantes disponibles son: {variants}. Actualmente tienes: {desc}."
+
+    for alias, variant_key in _VARIANT_ALIASES.items():
+        triggers = (f"variante {alias}", f"cambia variante a {alias}", f"cambia modo a {alias}")
+        if any(t == p or t.startswith(p + " ") for p in triggers):
+            session.variant = variant_key
+            label = _variant_label(variant_key)
+            return f"Variante cambiada a {label}."
 
     return None

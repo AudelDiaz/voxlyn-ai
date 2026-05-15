@@ -3,8 +3,8 @@ Description=voxlyn-ai: Hands-free AI voice assistant daemon
 After=sound.target
 
 [Service]
-ExecStart=%h/voxlyn-ai/.venv/bin/python %h/voxlyn-ai/daemon.py
-WorkingDirectory=%h/voxlyn-ai
+ExecStart=%h/Workspace/voxlyn-ai/.venv/bin/python %h/Workspace/voxlyn-ai/daemon.py
+WorkingDirectory=%h/Workspace/voxlyn-ai
 Restart=on-failure
 RestartSec=3
 

@@ -5,9 +5,18 @@ import time
 from typing import Optional
 
 import requests
+from requests.auth import HTTPBasicAuth
 
 OPENCODE_URL = os.getenv("OPENCODE_URL", "http://localhost:4096")
 OPENCODE_AUTO_START = os.getenv("OPENCODE_AUTO_START", "true").lower() == "true"
+
+
+def _get_auth() -> HTTPBasicAuth | None:
+    password = os.environ.get("OPENCODE_SERVER_PASSWORD", "")
+    if not password:
+        return None
+    username = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
+    return HTTPBasicAuth(username, password)
 
 
 class OpencodeError(Exception):
@@ -21,7 +30,7 @@ class OpencodeServer:
 
     def health(self) -> bool:
         try:
-            r = requests.get(f"{self.url}/global/health", timeout=3)
+            r = requests.get(f"{self.url}/global/health", auth=_get_auth(), timeout=3)
             return r.ok
         except requests.RequestException:
             return False
@@ -37,7 +46,7 @@ class OpencodeServer:
         if ":" in self.url:
             port = int(self.url.split(":")[-1])
         self.proc = subprocess.Popen(
-            ["opencode", "serve", "--port", str(port)],
+            ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -58,15 +67,25 @@ class OpencodeServer:
 
 
 class OpencodeSession:
-    def __init__(self, server: OpencodeServer, system_prompt: str = ""):
+    def __init__(
+        self,
+        server: OpencodeServer,
+        system_prompt: str = "",
+        variant: str = "",
+    ):
         self.server = server
         self.session_id: Optional[str] = None
         self.system_prompt = system_prompt
+        self.variant = variant
         self._msg_count = 0
 
     def create(self, title: str = "") -> str:
-        body = {"title": title} if title else {}
-        r = requests.post(f"{self.server.url}/session", json=body)
+        body: dict = {}
+        if title:
+            body["title"] = title
+        if self.variant:
+            body["model"] = {"variant": self.variant}
+        r = requests.post(f"{self.server.url}/session", json=body, auth=_get_auth())
         r.raise_for_status()
         data = r.json()
         self.session_id = data["id"]
@@ -77,7 +96,9 @@ class OpencodeSession:
         if not self.session_id:
             return False
         try:
-            r = requests.delete(f"{self.server.url}/session/{self.session_id}")
+            r = requests.delete(
+                f"{self.server.url}/session/{self.session_id}", auth=_get_auth()
+            )
             return r.ok
         except requests.RequestException:
             return False
@@ -92,12 +113,13 @@ class OpencodeSession:
             r = requests.patch(
                 f"{self.server.url}/session/{self.session_id}",
                 json={"title": title},
+                auth=_get_auth(),
             )
             return r.ok
         except requests.RequestException:
             return False
 
-    def send(self, text: str, system: str = "") -> str:
+    def send(self, text: str, system: str = "", variant: str | None = None) -> str:
         if not self.session_id:
             self.create()
         body = {
@@ -106,19 +128,27 @@ class OpencodeSession:
         sp = system or self.system_prompt
         if sp:
             body["system"] = sp
+        v = variant if variant is not None else self.variant
+        if v:
+            body["variant"] = v
         try:
             r = requests.post(
                 f"{self.server.url}/session/{self.session_id}/message",
                 json=body,
-                timeout=180,
+                auth=_get_auth(),
+                timeout=90,
             )
             r.raise_for_status()
+            data = r.json()
         except requests.RequestException as e:
             if self.session_id and self._msg_count > 0:
                 self.create()
                 return self.send(text, system)
             raise OpencodeError(f"Failed to send message: {e}") from e
-        data = r.json()
+        except ValueError as e:
+            raise OpencodeError(
+                f"OpenCode returned an invalid response: {e}"
+            ) from e
         self._msg_count += 1
         if self._msg_count == 1:
             title = text[:50].strip()
@@ -131,7 +161,7 @@ class OpencodeSession:
 
     @staticmethod
     def list_all(server: OpencodeServer) -> list[dict]:
-        r = requests.get(f"{server.url}/session")
+        r = requests.get(f"{server.url}/session", auth=_get_auth())
         r.raise_for_status()
         return r.json()
 
