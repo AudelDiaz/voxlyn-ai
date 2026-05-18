@@ -61,5 +61,6 @@ SYSTEM_PROMPT: str = os.getenv(
         "- reminders: Set and manage reminders and timers.\n"
         "- quick-notes: Save quick notes to a file.\n"
         "- system-info: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
+        "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.\n"
     ),
 )
