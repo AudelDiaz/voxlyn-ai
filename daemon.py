@@ -221,7 +221,7 @@ def handle_client(
                 audio = np.concatenate(_capture_chunks).flatten()
                 _capture_chunks.clear()
                 _capture_stop.clear()
-                notify("Voxlyn", "Procesando…")
+                notify("Voxlyn", "Processing…")
                 log.info(f"Captured {len(audio) / SAMPLE_RATE:.1f}s of audio")
 
                 threading.Thread(
@@ -249,7 +249,7 @@ def handle_client(
             _capture_chunks.clear()
             conn.sendall(b"ok\n")
             play_listen_tone()
-            notify("Voxlyn", "Escuchando…")
+            notify("Voxlyn", "Listening…")
             conn.close()
 
             threading.Thread(
