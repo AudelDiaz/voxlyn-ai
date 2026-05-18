@@ -2,7 +2,6 @@
 
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import time
@@ -70,13 +69,10 @@ def _open_in_terminal(path: str) -> None:
 
 
 def _run_in_terminal(args: list[str]) -> None:
-    shell_cmd = shlex.join(args)
-    title_cmd = f'printf "\\033]0;voxlyn-viewer\\007" && {shell_cmd}'
-    wrapped = ["sh", "-c", title_cmd]
     term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
     if term_exec:
         try:
-            subprocess.Popen([term_exec, *wrapped], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen([term_exec, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
         except FileNotFoundError:
             pass
@@ -84,7 +80,7 @@ def _run_in_terminal(args: list[str]) -> None:
         if not shutil.which(term):
             continue
         try:
-            subprocess.Popen([term, *wrapped], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen([term, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
         except FileNotFoundError:
             continue
