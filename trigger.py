@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """voxlyn-ai trigger: keyboard-shortcut client.
 
-Connects to the daemon's Unix socket, sends a ``record`` command,
-and exits. Designed to be bound to a keyboard shortcut.
+Usage:
+    trigger.py           — send "record" (start/stop capture)
+    trigger.py cancel    — send "cancel" (interrupt playback/processing)
+    
+Connects to the daemon's Unix socket, sends the command, and exits.
+Designed to be bound to a keyboard shortcut.
 """
 
 import socket
@@ -14,7 +18,13 @@ SOCKET_PATH = Path.home() / ".voice-assistant" / "daemon.sock"
 
 
 def main() -> None:
-    """Connect to the daemon socket and request a recording cycle."""
+    """Connect to the daemon socket, send the command, and print the response."""
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "record"
+    valid = ("record", "cancel")
+    if cmd not in valid:
+        print(f"Error: unknown command '{cmd}'. Valid: {'/'.join(valid)}", file=sys.stderr)
+        sys.exit(1)
+
     if not SOCKET_PATH.exists():
         print("Error: Voice Assistant daemon is not running.", file=sys.stderr)
         try:
@@ -36,12 +46,12 @@ def main() -> None:
     sock.settimeout(5)
     try:
         sock.connect(str(SOCKET_PATH))
-        sock.sendall(b"record\n")
+        sock.sendall(f"{cmd}\n".encode())
         response = sock.recv(64).decode().strip()
         if response == "busy":
             print("Daemon: busy (already processing)", file=sys.stderr)
         elif response == "ok":
-            print("Daemon: recording...", file=sys.stderr)
+            print(f"Daemon: {cmd} acknowledged", file=sys.stderr)
         else:
             print(f"Daemon: {response}", file=sys.stderr)
     except socket.timeout:

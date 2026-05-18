@@ -102,12 +102,24 @@ During every interaction:
 Over time your memory grows richer and your answers become more
 contextual. A user shouldn't need to repeat themselves.
 
-## Checking your knowledge base
+## Handling memory queries from the user
+
+When the user asks about what you remember, what wings or rooms exist,
+or to list stored information:
 
 ```bash
+# List all wings and rooms with drawer counts
 uv run python mempalace_helper.py status
+
+# Filter to a specific wing
 uv run python mempalace_helper.py status --wing <wing>
+
+# Search for something specific
+uv run python mempalace_helper.py search "<query>" -n 5
 ```
+
+The `status` command returns the number of drawers, all wings, and all
+rooms. Report them back naturally (don't read raw output).
 
 ## Architecture reference
 

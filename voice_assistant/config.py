@@ -23,11 +23,16 @@ KOKORO_LANG_ES: str = "e"  # Spanish
 KOKORO_VOICE_EN: str = os.getenv("KOKORO_VOICE_EN", "af_heart")
 KOKORO_VOICE_ES: str = os.getenv("KOKORO_VOICE_ES", "ef_dora")
 
+# --- Response length threshold for clipboard auto-copy ---
+# Responses longer than this (in chars) are copied to clipboard and
+# summarized aloud instead of read in full.
+LONG_RESPONSE_THRESHOLD: int = int(os.getenv("LONG_RESPONSE_THRESHOLD", "300"))
+
 # --- OpenCode ---
 OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
 
 # --- OpenCode variant (reasoning effort) ---
-VARIANT: str = os.getenv("VARIANT", "")
+VARIANT: str = os.getenv("VARIANT", "low")
 
 VARIANT_NAMES: dict[str, str] = {
     "": "default — sin razonamiento extra, respuesta inmediata",
@@ -53,8 +58,12 @@ AUTO_VARIANT_KEYWORDS: tuple[str, ...] = (
 SYSTEM_PROMPT: str = os.getenv(
     "SYSTEM_PROMPT",
     (
-        "You are voxlyn, a helpful AI voice assistant. Respond concisely in 1-3 sentences "
-        "in the same language as the user. Do not use markdown formatting.\n\n"
+        "You are voxlyn, a helpful AI voice assistant. "
+        "Respond in the same language as the user. "
+        "For simple questions keep it concise (1-3 sentences). "
+        "For complex explanations, code, or detailed instructions, respond freely "
+        "with markdown when appropriate — long responses or code blocks are "
+        "automatically saved to a temp file and opened for the user.\n\n"
         "You have the following skills available:\n"
         "- web-search: Search the web for current events, facts, and information.\n"
         "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"

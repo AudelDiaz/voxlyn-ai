@@ -2,6 +2,8 @@
 
 import re
 import subprocess
+import time
+from pathlib import Path
 
 CODE_BLOCK_RE = re.compile(r"```[\w]*\n.*?```", re.DOTALL)
 
@@ -25,6 +27,55 @@ def notify(title: str, body: str) -> None:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Copy *text* to the system clipboard via wl-copy (Wayland) or xclip."""
+    for cmd in ("wl-copy", "xclip", "xsel"):
+        try:
+            subprocess.run(
+                [cmd],
+                input=text.encode(),
+                capture_output=True,
+                timeout=5,
+            )
+            return
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+
+
+def save_and_open(text: str) -> str:
+    """Write *text* to a temp markdown file and open it with xdg-open.
+
+    Returns the path to the created file.
+    """
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    path = Path(f"/tmp/voxlyn-{ts}.md")
+    path.write_text(text, encoding="utf-8")
+    try:
+        subprocess.Popen(
+            ["xdg-open", str(path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        pass
+    return str(path)
+
+
+def summarize(text: str, max_len: int = 150) -> str:
+    """Return the first sentence or meaningful fragment up to *max_len* chars."""
+    clean = clean_markdown(text).strip()
+    if not clean:
+        return ""
+    for sep in (". ", ".\n", "\n\n", "!", "?"):
+        idx = clean.find(sep)
+        if 10 < idx < max_len:
+            return clean[: idx + 1]
+    if len(clean) <= max_len:
+        return clean
+    break_idx = clean.rfind(" ", 0, max_len)
+    return clean[:break_idx] + "…" if break_idx > 0 else clean[:max_len] + "…"
 
 
 def clean_markdown(text: str) -> str:

@@ -24,3 +24,6 @@ entities.json
 
 # OpenCode instruction file (AI agent context, not project code)
 AGENTS.md
+
+# SpeckIt project specification (volatile per-developer state)
+.specify/
