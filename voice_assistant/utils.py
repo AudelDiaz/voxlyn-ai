@@ -1,5 +1,6 @@
 """Utility functions shared across the application."""
 
+import os
 import re
 import shutil
 import subprocess
@@ -48,7 +49,8 @@ def copy_to_clipboard(text: str) -> None:
 def save_and_open(text: str) -> str:
     """Write *text* to a temp markdown file and open it in a terminal.
 
-    Tries kitty → ghostty with nvim, falls back to cat, then xdg-open.
+    Uses xdg-terminal-exec (omarchy default → ghostty) with nvim,
+    falls back to cat, then xdg-open.
     Returns the path to the created file.
     """
     ts = time.strftime("%Y%m%d-%H%M%S")
@@ -59,7 +61,18 @@ def save_and_open(text: str) -> str:
 
 
 def _open_in_terminal(path: str) -> None:
-    for term in ("kitty", "ghostty"):
+    term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
+    if term_exec:
+        if shutil.which("nvim"):
+            cmd = [term_exec, "nvim", path]
+        else:
+            cmd = [term_exec, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except FileNotFoundError:
+            pass
+    for term in ("ghostty", "kitty"):
         if not shutil.which(term):
             continue
         if shutil.which("nvim"):
