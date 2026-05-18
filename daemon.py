@@ -34,12 +34,15 @@ from voice_assistant.audio import (
     prewarm_pipelines,
     speak,
 )
+from voice_assistant.utils import has_code_block, notify
 from voice_assistant.config import (
     COMPUTE_TYPE,
+    LONG_RESPONSE_THRESHOLD,
     SAMPLE_RATE,
     SYSTEM_PROMPT,
     WHISPER_MODEL,
 )
+from voice_assistant.utils import has_code_block
 from voice_assistant.llm import get_response, shutdown_memory_executor
 from voice_assistant.transcription import transcribe
 
@@ -160,6 +163,10 @@ def process_pipeline(
         ai_response = get_response(user_text, server, session)
         log.info(f"Assistant: {ai_response}")
 
+        if not has_code_block(ai_response) and len(ai_response) <= LONG_RESPONSE_THRESHOLD:
+            preview = ai_response[:120].replace("\n", " ")
+            notify("Voxlyn", f"{preview}{"…" if len(ai_response) > 120 else ""}")
+
         if _cancel_playback.is_set():
             log.info("Pipeline cancelled before speak")
             return
@@ -214,6 +221,7 @@ def handle_client(
                 audio = np.concatenate(_capture_chunks).flatten()
                 _capture_chunks.clear()
                 _capture_stop.clear()
+                notify("Voxlyn", "Procesando…")
                 log.info(f"Captured {len(audio) / SAMPLE_RATE:.1f}s of audio")
 
                 threading.Thread(
@@ -241,6 +249,7 @@ def handle_client(
             _capture_chunks.clear()
             conn.sendall(b"ok\n")
             play_listen_tone()
+            notify("Voxlyn", "Escuchando…")
             conn.close()
 
             threading.Thread(
