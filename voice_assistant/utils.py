@@ -61,11 +61,16 @@ def save_and_open(text: str) -> str:
 
 
 def _open_in_terminal(path: str) -> None:
-    viewer = "glow" if shutil.which("glow") else ("nvim" if shutil.which("nvim") else None)
+    if shutil.which("glow"):
+        viewer_cmd = ["glow", "-p"]
+    elif shutil.which("nvim"):
+        viewer_cmd = ["nvim"]
+    else:
+        viewer_cmd = None
     term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
     if term_exec:
-        if viewer:
-            cmd = [term_exec, viewer, path]
+        if viewer_cmd:
+            cmd = [term_exec, *viewer_cmd, path]
         else:
             cmd = [term_exec, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
         try:
@@ -76,8 +81,8 @@ def _open_in_terminal(path: str) -> None:
     for term in ("ghostty", "kitty"):
         if not shutil.which(term):
             continue
-        if viewer:
-            cmd = [term, viewer, path]
+        if viewer_cmd:
+            cmd = [term, *viewer_cmd, path]
         else:
             cmd = [term, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
         try:
