@@ -5,8 +5,28 @@ import sys
 from opencode_client import OpencodeServer, OpencodeSession
 
 from voice_assistant.commands import handle_session_command
-from voice_assistant.config import SYSTEM_PROMPT
+from voice_assistant.config import (
+    AUTO_VARIANT_KEYWORDS,
+    SYSTEM_PROMPT,
+    VARIANT,
+)
 from voice_assistant.memory import save_turn, search_context, format_context
+
+
+def _infer_variant(text: str, configured: str) -> str:
+    """Return a higher variant when the query looks complex.
+
+    If the user already chose ``high`` or ``max``, respect that choice.
+    Otherwise bump to ``high`` temporarily for complex-looking queries.
+    """
+    if configured in ("high", "max"):
+        return configured
+    lower = text.lower()
+    if any(kw in lower for kw in AUTO_VARIANT_KEYWORDS):
+        return "high"
+    if len(text) > 120:
+        return "medium"
+    return configured
 
 
 def get_response(
@@ -28,7 +48,7 @@ def get_response(
         server = OpencodeServer()
         server.ensure_running()
     if session is None:
-        session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT)
+        session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT, variant=VARIANT)
 
     cmd_result = handle_session_command(text, session, server)
     if cmd_result is not None:
@@ -39,6 +59,7 @@ def get_response(
     context = format_context(search_context(text))
     full_text = f"{context}\n\n{text}" if context else text
 
-    response = session.send(full_text)
+    variant = _infer_variant(text, session.variant)
+    response = session.send(full_text, variant=variant)
     save_turn(text, response)
     return response

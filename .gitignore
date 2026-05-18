@@ -11,7 +11,7 @@ wheels/
 # Virtual env
 .venv
 
-# Piper voice models (downloaded on first run)
+# Piper voice models (legacy - no longer used with Kokoro)
 voices/*.onnx
 voices/*.onnx.json
 
@@ -21,3 +21,6 @@ voices/*.onnx.json
 # MemPalace per-project files
 mempalace.yaml
 entities.json
+
+# OpenCode instruction file (AI agent context, not project code)
+AGENTS.md
