@@ -1,6 +1,7 @@
 """Utility functions shared across the application."""
 
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -45,22 +46,35 @@ def copy_to_clipboard(text: str) -> None:
 
 
 def save_and_open(text: str) -> str:
-    """Write *text* to a temp markdown file and open it with xdg-open.
+    """Write *text* to a temp markdown file and open it in a terminal.
 
+    Tries kitty → ghostty with nvim, falls back to cat, then xdg-open.
     Returns the path to the created file.
     """
     ts = time.strftime("%Y%m%d-%H%M%S")
     path = Path(f"/tmp/voxlyn-{ts}.md")
     path.write_text(text, encoding="utf-8")
+    _open_in_terminal(str(path))
+    return str(path)
+
+
+def _open_in_terminal(path: str) -> None:
+    for term in ("kitty", "ghostty"):
+        if not shutil.which(term):
+            continue
+        if shutil.which("nvim"):
+            cmd = [term, "nvim", path]
+        else:
+            cmd = [term, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except FileNotFoundError:
+            continue
+        return
     try:
-        subprocess.Popen(
-            ["xdg-open", str(path)],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
         pass
-    return str(path)
 
 
 def summarize(text: str, max_len: int = 150) -> str:
