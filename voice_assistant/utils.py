@@ -61,37 +61,31 @@ def save_and_open(text: str) -> str:
 
 
 def _open_in_terminal(path: str) -> None:
-    if shutil.which("glow"):
-        viewer_cmd = ["glow", "-p"]
-    elif shutil.which("nvim"):
-        viewer_cmd = ["nvim"]
+    viewer_cmd = ["glow", "-p"] if shutil.which("glow") else (["nvim"] if shutil.which("nvim") else None)
+    if viewer_cmd:
+        _run_in_terminal([*viewer_cmd, path])
     else:
-        viewer_cmd = None
+        _run_in_terminal(["sh", "-c", f"cat {path}; echo; echo 'Press Enter to close'; read"])
+
+
+def _run_in_terminal(args: list[str]) -> None:
     term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
     if term_exec:
-        if viewer_cmd:
-            cmd = [term_exec, *viewer_cmd, path]
-        else:
-            cmd = [term_exec, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
         try:
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen([term_exec, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
         except FileNotFoundError:
             pass
     for term in ("ghostty", "kitty"):
         if not shutil.which(term):
             continue
-        if viewer_cmd:
-            cmd = [term, *viewer_cmd, path]
-        else:
-            cmd = [term, "sh", "-c", f"cat {path}; echo; echo 'Presiona Enter para cerrar'; read"]
         try:
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen([term, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
         except FileNotFoundError:
             continue
-        return
     try:
-        subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["xdg-open", args[-1]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
         pass
 

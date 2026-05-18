@@ -34,7 +34,7 @@ from voice_assistant.audio import (
     prewarm_pipelines,
     speak,
 )
-from voice_assistant.utils import has_code_block, notify
+from voice_assistant.utils import has_code_block, notify, _run_in_terminal
 from voice_assistant.config import (
     COMPUTE_TYPE,
     LONG_RESPONSE_THRESHOLD,
@@ -162,6 +162,12 @@ def process_pipeline(
         log.info(f"User: {user_text}")
         ai_response = get_response(user_text, server, session)
         log.info(f"Assistant: {ai_response}")
+
+        if ai_response == "__LOGS__":
+            notify("Voxlyn", "Opening logs…")
+            _run_in_terminal(["sh", "-c", "journalctl --user -u voxlyn-ai -f"])
+            speak("Opening logs.", cancel_event=_cancel_playback)
+            return
 
         if not has_code_block(ai_response) and len(ai_response) <= LONG_RESPONSE_THRESHOLD:
             preview = ai_response[:120].replace("\n", " ")
