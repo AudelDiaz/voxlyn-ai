@@ -4,8 +4,8 @@ import os
 
 # --- Audio recording ---
 SAMPLE_RATE: int = 16000
-SILENCE_THRESHOLD: float = 0.02
-SILENCE_DURATION: float = 2.0
+SILENCE_THRESHOLD: float = float(os.getenv("SILENCE_THRESHOLD", "0.01"))
+SILENCE_DURATION: float = float(os.getenv("SILENCE_DURATION", "2.0"))
 MIN_RECORD_SECONDS: int = 2
 MAX_RECORD_SECONDS: int = 60
 
@@ -13,8 +13,10 @@ MAX_RECORD_SECONDS: int = 60
 WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
 COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 WHISPER_LANG: str = os.getenv("WHISPER_LANG", "")
+VAD_THRESHOLD: float = float(os.getenv("VAD_THRESHOLD", "0.3"))
+
 HOTWORDS: str = os.getenv(
-    "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API"
+    "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API,logs,log,registro,registros"
 )
 
 # --- Kokoro TTS ---

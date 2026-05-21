@@ -69,21 +69,32 @@ def _open_in_terminal(path: str) -> None:
 
 
 def _run_in_terminal(args: list[str]) -> None:
-    term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
-    if term_exec:
+    APP_ID = "voxlyn-viewer"
+    # kitty is preferred: respects --class for Hyprland window rules.
+    if shutil.which("kitty"):
         try:
-            subprocess.Popen([term_exec, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(["kitty", f"--class={APP_ID}", "-e", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
         except FileNotFoundError:
             pass
-    for term in ("ghostty", "kitty"):
-        if not shutil.which(term):
-            continue
+    # ghostty 1.3.1 has two bugs: --app-id CLI flag is silently ignored,
+    # and -e closes the window immediately.  Use -o command= instead.
+    if shutil.which("ghostty"):
         try:
-            subprocess.Popen([term, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # shell-quote args to pass them as a command via --command
+            import shlex
+            quoted = shlex.join(args)
+            subprocess.Popen(["ghostty", "--command=sh", "-c", quoted], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return
         except FileNotFoundError:
-            continue
+            pass
+    term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
+    if term_exec:
+        try:
+            subprocess.Popen([term_exec, "--", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except FileNotFoundError:
+            pass
     try:
         subprocess.Popen(["xdg-open", args[-1]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:

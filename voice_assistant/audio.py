@@ -156,6 +156,38 @@ def speak(text: str, user_text: str = "", cancel_event: threading.Event | None =
             time.sleep(0.05)
 
 
+def play_process_tone() -> None:
+    """Play a short ascending tone to indicate thinking/processing."""
+    sr = 22050
+    t = np.linspace(0, 0.3, int(sr * 0.3), endpoint=False)
+    tone = (np.sin(2 * np.pi * (440 + 220 * t / 0.3) * t) * 0.3).astype(np.float32)
+    sd.play(tone, sr)
+    sd.wait()
+
+
+def play_stop_tone() -> None:
+    """Play a short beep to indicate recording stopped and processing."""
+    duration = 0.15
+    freq = 660
+    sr = 22050
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    tone = (np.sin(2 * np.pi * freq * t) * 0.5).astype(np.float32)
+    for cmd in ("paplay", "aplay"):
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                sf.write(f.name, tone, sr)
+            subprocess.run([cmd, f.name], capture_output=True, timeout=3)
+            os.unlink(f.name)
+            return
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            try:
+                os.unlink(f.name)
+            except OSError:
+                pass
+    sd.play(tone, sr)
+    sd.wait()
+
+
 def play_listen_tone() -> None:
     """Play a short beep to indicate the assistant is listening."""
     duration = 0.2

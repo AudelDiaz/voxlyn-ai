@@ -31,6 +31,8 @@ from faster_whisper import WhisperModel
 from opencode_client import OpencodeServer, OpencodeSession
 from voice_assistant.audio import (
     play_listen_tone,
+    play_process_tone,
+    play_stop_tone,
     prewarm_pipelines,
     speak,
 )
@@ -157,9 +159,11 @@ def process_pipeline(
         user_text = transcribe(whisper, audio)
         if not user_text:
             log.info("No speech detected")
+            print("[No speech detected]", file=sys.stderr)
             return
 
         log.info(f"User: {user_text}")
+        play_process_tone()
         ai_response = get_response(user_text, server, session)
         log.info(f"Assistant: {ai_response}")
 
@@ -215,6 +219,16 @@ def handle_client(
             return
 
         with _busy_lock:
+            if _busy:
+                # Currently processing — stop playback
+                _cancel_playback.set()
+                _capture_stop.set()
+                _capturing = False
+                conn.sendall(b"ok\n")
+                log.info("Trigger interrupted processing")
+                conn.close()
+                return
+
             if _capturing:
                 # Stop capture and process
                 _capture_stop.set()
@@ -224,6 +238,14 @@ def handle_client(
                 conn.sendall(b"ok\n")
                 conn.close()
 
+                play_stop_tone()
+                print("[Stopped]", file=sys.stderr)
+                log.info("Capture stopped")
+
+                if not _capture_chunks:
+                    log.warning("Empty capture, discarding")
+                    _busy = False
+                    return
                 audio = np.concatenate(_capture_chunks).flatten()
                 _capture_chunks.clear()
                 _capture_stop.clear()
@@ -235,17 +257,6 @@ def handle_client(
                     args=(whisper, server, session, audio),
                     daemon=True,
                 ).start()
-                return
-
-            if _busy:
-                # Currently processing or speaking — cancel playback
-                _cancel_playback.set()
-                # Also stop any straggling capture
-                _capture_stop.set()
-                _capturing = False
-                conn.sendall(b"ok\n")
-                log.info("Trigger interrupted processing")
-                conn.close()
                 return
 
             # Start capture

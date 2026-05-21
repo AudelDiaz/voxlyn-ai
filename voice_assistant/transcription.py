@@ -5,7 +5,7 @@ import sys
 import numpy as np
 from faster_whisper import WhisperModel
 
-from voice_assistant.config import WHISPER_LANG
+from voice_assistant.config import VAD_THRESHOLD, WHISPER_LANG, HOTWORDS
 
 # Words that Whisper may hallucinate from background noise.
 _HALLUCINATED_WORDS = frozenset(
@@ -80,6 +80,8 @@ def transcribe(model: WhisperModel, audio: np.ndarray) -> str:
         language=lang,
         beam_size=5,
         vad_filter=True,
+        vad_parameters=dict(threshold=VAD_THRESHOLD),
+        hotwords=HOTWORDS,
     )
     text = " ".join(seg.text for seg in segments).strip()
     if _is_hallucination(text):
