@@ -82,6 +82,9 @@ def handle_session_command(
     if any(palabra in t for palabra in ("salir", "exit", "quit", "adiós", "adios")):
         return "__EXIT__"
 
+    if t in ("logs", "ver logs", "show logs", "muestra logs", "abre logs", "ver registro", "log", "los logs", "el log", "el registro", "los registros"):
+        return "__LOGS__"
+
     if t in ("lista variantes", "listar variantes", "que variantes hay", "muestra las variantes"):
         current = session.variant if hasattr(session, "variant") else ""
         desc = _variant_label(current)

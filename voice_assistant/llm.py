@@ -1,6 +1,7 @@
 """LLM interaction via the OpenCode REST API."""
 
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 from opencode_client import OpencodeServer, OpencodeSession
 
@@ -11,6 +12,12 @@ from voice_assistant.config import (
     VARIANT,
 )
 from voice_assistant.memory import save_turn, search_context, format_context
+
+_memory_executor = ThreadPoolExecutor(max_workers=1)
+
+
+def shutdown_memory_executor() -> None:
+    _memory_executor.shutdown(wait=True)
 
 
 def _infer_variant(text: str, configured: str) -> str:
@@ -61,5 +68,5 @@ def get_response(
 
     variant = _infer_variant(text, session.variant)
     response = session.send(full_text, variant=variant)
-    save_turn(text, response)
+    _memory_executor.submit(save_turn, text, response)
     return response

@@ -1,7 +1,11 @@
 """Utility functions shared across the application."""
 
+import os
 import re
+import shutil
 import subprocess
+import time
+from pathlib import Path
 
 CODE_BLOCK_RE = re.compile(r"```[\w]*\n.*?```", re.DOTALL)
 
@@ -25,6 +29,91 @@ def notify(title: str, body: str) -> None:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Copy *text* to the system clipboard via wl-copy (Wayland) or xclip."""
+    for cmd in ("wl-copy", "xclip", "xsel"):
+        try:
+            subprocess.run(
+                [cmd],
+                input=text.encode(),
+                capture_output=True,
+                timeout=5,
+            )
+            return
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+
+
+def save_and_open(text: str) -> str:
+    """Write *text* to a temp markdown file and open it in a terminal.
+
+    Uses xdg-terminal-exec (omarchy default → ghostty) with glow for
+    rendered markdown, falls back to nvim, cat, then xdg-open.
+    Returns the path to the created file.
+    """
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    path = Path(f"/tmp/voxlyn-{ts}.md")
+    path.write_text(text, encoding="utf-8")
+    _open_in_terminal(str(path))
+    return str(path)
+
+
+def _open_in_terminal(path: str) -> None:
+    viewer_cmd = ["glow", "-p"] if shutil.which("glow") else (["nvim"] if shutil.which("nvim") else None)
+    if viewer_cmd:
+        _run_in_terminal([*viewer_cmd, path])
+    else:
+        _run_in_terminal(["sh", "-c", f"cat {path}; echo; echo 'Press Enter to close'; read"])
+
+
+def _run_in_terminal(args: list[str]) -> None:
+    APP_ID = "voxlyn-viewer"
+    # kitty is preferred: respects --class for Hyprland window rules.
+    if shutil.which("kitty"):
+        try:
+            subprocess.Popen(["kitty", f"--class={APP_ID}", "-e", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except FileNotFoundError:
+            pass
+    # ghostty 1.3.1 has two bugs: --app-id CLI flag is silently ignored,
+    # and -e closes the window immediately.  Use -o command= instead.
+    if shutil.which("ghostty"):
+        try:
+            # shell-quote args to pass them as a command via --command
+            import shlex
+            quoted = shlex.join(args)
+            subprocess.Popen(["ghostty", "--command=sh", "-c", quoted], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except FileNotFoundError:
+            pass
+    term_exec = shutil.which("xdg-terminal-exec") or os.environ.get("TERMINAL")
+    if term_exec:
+        try:
+            subprocess.Popen([term_exec, "--", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except FileNotFoundError:
+            pass
+    try:
+        subprocess.Popen(["xdg-open", args[-1]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        pass
+
+
+def summarize(text: str, max_len: int = 150) -> str:
+    """Return the first sentence or meaningful fragment up to *max_len* chars."""
+    clean = clean_markdown(text).strip()
+    if not clean:
+        return ""
+    for sep in (". ", ".\n", "\n\n", "!", "?"):
+        idx = clean.find(sep)
+        if 10 < idx < max_len:
+            return clean[: idx + 1]
+    if len(clean) <= max_len:
+        return clean
+    break_idx = clean.rfind(" ", 0, max_len)
+    return clean[:break_idx] + "…" if break_idx > 0 else clean[:max_len] + "…"
 
 
 def clean_markdown(text: str) -> str:

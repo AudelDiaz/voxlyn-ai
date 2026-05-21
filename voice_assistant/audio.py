@@ -4,7 +4,8 @@ import os
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+import threading
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -54,8 +55,8 @@ def _get_pipeline(lang: str):
     return _pipelines[lang]
 
 
-def get_piper_voice():
-    """Initialize Kokoro pipelines at startup (alias for daemon compat)."""
+def prewarm_pipelines():
+    """Pre-load Kokoro pipelines at daemon startup."""
     _get_pipeline(KOKORO_LANG_EN)
     _get_pipeline(KOKORO_LANG_ES)
 
@@ -98,25 +99,37 @@ def record_audio() -> np.ndarray:
     return audio
 
 
-def speak(text: str, user_text: str = "") -> None:
+def speak(text: str, user_text: str = "", cancel_event: threading.Event | None = None) -> None:
     """Synthesize *text* with Kokoro and play it through the speakers.
 
     Selects language based on *user_text* (the LLM mirrors the user's
     language per system prompt). Falls back to detecting from *text*.
 
-    If the response contains a Markdown code block the code is sent to a
-    desktop notification instead of being read aloud.
+    If a *cancel_event* is provided, playback checks it between audio
+    chunks and stops early when set.
     """
-    from voice_assistant.utils import clean_markdown, has_code_block, notify, strip_code_blocks
+    from voice_assistant.config import LONG_RESPONSE_THRESHOLD
+    from voice_assistant.utils import (
+        clean_markdown,
+        copy_to_clipboard,
+        has_code_block,
+        save_and_open,
+        strip_code_blocks,
+        summarize,
+    )
+
+    tts_text = text
 
     if has_code_block(text):
         prose = strip_code_blocks(text)
-        summary = prose if len(prose) > 10 else "La respuesta incluye código."
-        notify("Asistente - Respuesta con código", text)
-        tts_text = summary
-        print(f"Asistente (notif.): {summary}", file=sys.stderr)
-    else:
-        tts_text = text
+        copy_to_clipboard(text)
+        save_and_open(text)
+        tts_text = prose if len(prose) > 10 else "El código ha sido copiado al portapapeles."
+        print(f"Asistente (clipboard+file): {tts_text}", file=sys.stderr)
+    elif len(text) > LONG_RESPONSE_THRESHOLD:
+        path = save_and_open(text)
+        tts_text = summarize(text)
+        print(f"Asistente (saved to {path}): {tts_text}", file=sys.stderr)
 
     tts_text = clean_markdown(tts_text)
     print(f"Asistente: {tts_text}", file=sys.stderr)
@@ -130,9 +143,49 @@ def speak(text: str, user_text: str = "") -> None:
         pipeline = _get_pipeline(KOKORO_LANG_EN)
         voice = KOKORO_VOICE_EN
 
+    if cancel_event:
+        cancel_event.clear()
+
     for result in pipeline(tts_text, voice=voice):
         sd.play(result.audio, 24000)
-        sd.wait()
+        while sd.get_stream().active:
+            if cancel_event and cancel_event.is_set():
+                sd.stop()
+                cancel_event.clear()
+                return
+            time.sleep(0.05)
+
+
+def play_process_tone() -> None:
+    """Play a short ascending tone to indicate thinking/processing."""
+    sr = 22050
+    t = np.linspace(0, 0.3, int(sr * 0.3), endpoint=False)
+    tone = (np.sin(2 * np.pi * (440 + 220 * t / 0.3) * t) * 0.3).astype(np.float32)
+    sd.play(tone, sr)
+    sd.wait()
+
+
+def play_stop_tone() -> None:
+    """Play a short beep to indicate recording stopped and processing."""
+    duration = 0.15
+    freq = 660
+    sr = 22050
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    tone = (np.sin(2 * np.pi * freq * t) * 0.5).astype(np.float32)
+    for cmd in ("paplay", "aplay"):
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                sf.write(f.name, tone, sr)
+            subprocess.run([cmd, f.name], capture_output=True, timeout=3)
+            os.unlink(f.name)
+            return
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            try:
+                os.unlink(f.name)
+            except OSError:
+                pass
+    sd.play(tone, sr)
+    sd.wait()
 
 
 def play_listen_tone() -> None:

@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 import time
 from typing import Optional
 
@@ -9,6 +8,7 @@ from requests.auth import HTTPBasicAuth
 
 OPENCODE_URL = os.getenv("OPENCODE_URL", "http://localhost:4096")
 OPENCODE_AUTO_START = os.getenv("OPENCODE_AUTO_START", "true").lower() == "true"
+OPENCODE_TIMEOUT = int(os.getenv("OPENCODE_TIMEOUT", "180"))
 
 
 def _get_auth() -> HTTPBasicAuth | None:
@@ -39,9 +39,7 @@ class OpencodeServer:
         if self.health():
             return
         if not OPENCODE_AUTO_START:
-            raise OpencodeError(
-                "OpenCode server not running. Start it: opencode serve"
-            )
+            raise OpencodeError("OpenCode server not running. Start it: opencode serve")
         port = 4096
         if ":" in self.url:
             port = int(self.url.split(":")[-1])
@@ -90,7 +88,7 @@ class OpencodeSession:
         data = r.json()
         self.session_id = data["id"]
         self._msg_count = 0
-        return self.session_id
+        return str(self.session_id)
 
     def delete(self) -> bool:
         if not self.session_id:
@@ -136,19 +134,23 @@ class OpencodeSession:
                 f"{self.server.url}/session/{self.session_id}/message",
                 json=body,
                 auth=_get_auth(),
-                timeout=90,
+                timeout=OPENCODE_TIMEOUT,
             )
             r.raise_for_status()
             data = r.json()
+        except requests.Timeout:
+            return "The request took too long. Try breaking it into smaller questions."
         except requests.RequestException as e:
             if self.session_id and self._msg_count > 0:
-                self.create()
+                self.session_id = None
+                try:
+                    self.create()
+                except requests.RequestException:
+                    return "Connection error while creating a new session. Please try again."
                 return self.send(text, system)
             raise OpencodeError(f"Failed to send message: {e}") from e
         except ValueError as e:
-            raise OpencodeError(
-                f"OpenCode returned an invalid response: {e}"
-            ) from e
+            raise OpencodeError(f"OpenCode returned an invalid response: {e}") from e
         self._msg_count += 1
         if self._msg_count == 1:
             title = text[:50].strip()
@@ -166,14 +168,10 @@ class OpencodeSession:
         return r.json()
 
     @staticmethod
-    def find_by_title(
-        server: OpencodeServer, title_fragment: str
-    ) -> Optional[dict]:
+    def find_by_title(server: OpencodeServer, title_fragment: str) -> Optional[dict]:
         sessions = OpencodeSession.list_all(server)
         lower = title_fragment.lower()
-        matches = [
-            s for s in sessions if lower in s.get("title", "").lower()
-        ]
+        matches = [s for s in sessions if lower in s.get("title", "").lower()]
         if not matches:
             return None
         return max(matches, key=lambda s: s["time"]["updated"])

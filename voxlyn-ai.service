@@ -1,8 +1,11 @@
 [Unit]
 Description=voxlyn-ai: Hands-free AI voice assistant daemon
-After=sound.target
+Documentation=https://github.com/audeldiaz/voxlyn-ai
+After=sound.target opencode.service
+BindsTo=opencode.service
 
 [Service]
+Type=exec
 ExecStart=%h/Workspace/voxlyn-ai/.venv/bin/python %h/Workspace/voxlyn-ai/daemon.py
 WorkingDirectory=%h/Workspace/voxlyn-ai
 Restart=on-failure

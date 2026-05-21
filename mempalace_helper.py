@@ -6,9 +6,7 @@ MemPalace operations for wings, rooms, halls, and knowledge graph.
 
 import argparse
 import hashlib
-import sys
 from datetime import datetime
-from pathlib import Path
 
 from mempalace.config import MempalaceConfig
 from mempalace.palace import get_collection as _get_collection

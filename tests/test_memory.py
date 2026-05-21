@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from mempalace_memory import _redact_secrets, format_context, save_turn, search_context
 
 

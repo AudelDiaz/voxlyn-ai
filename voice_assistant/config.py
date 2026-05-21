@@ -4,8 +4,8 @@ import os
 
 # --- Audio recording ---
 SAMPLE_RATE: int = 16000
-SILENCE_THRESHOLD: float = 0.02
-SILENCE_DURATION: float = 2.0
+SILENCE_THRESHOLD: float = float(os.getenv("SILENCE_THRESHOLD", "0.01"))
+SILENCE_DURATION: float = float(os.getenv("SILENCE_DURATION", "2.0"))
 MIN_RECORD_SECONDS: int = 2
 MAX_RECORD_SECONDS: int = 60
 
@@ -13,8 +13,10 @@ MAX_RECORD_SECONDS: int = 60
 WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
 COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 WHISPER_LANG: str = os.getenv("WHISPER_LANG", "")
+VAD_THRESHOLD: float = float(os.getenv("VAD_THRESHOLD", "0.3"))
+
 HOTWORDS: str = os.getenv(
-    "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API"
+    "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API,logs,log,registro,registros"
 )
 
 # --- Kokoro TTS ---
@@ -23,11 +25,16 @@ KOKORO_LANG_ES: str = "e"  # Spanish
 KOKORO_VOICE_EN: str = os.getenv("KOKORO_VOICE_EN", "af_heart")
 KOKORO_VOICE_ES: str = os.getenv("KOKORO_VOICE_ES", "ef_dora")
 
+# --- Response length threshold for clipboard auto-copy ---
+# Responses longer than this (in chars) are copied to clipboard and
+# summarized aloud instead of read in full.
+LONG_RESPONSE_THRESHOLD: int = int(os.getenv("LONG_RESPONSE_THRESHOLD", "300"))
+
 # --- OpenCode ---
 OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
 
 # --- OpenCode variant (reasoning effort) ---
-VARIANT: str = os.getenv("VARIANT", "")
+VARIANT: str = os.getenv("VARIANT", "low")
 
 VARIANT_NAMES: dict[str, str] = {
     "": "default — sin razonamiento extra, respuesta inmediata",
@@ -53,8 +60,12 @@ AUTO_VARIANT_KEYWORDS: tuple[str, ...] = (
 SYSTEM_PROMPT: str = os.getenv(
     "SYSTEM_PROMPT",
     (
-        "You are voxlyn, a helpful AI voice assistant. Respond concisely in 1-3 sentences "
-        "in the same language as the user. Do not use markdown formatting.\n\n"
+        "You are voxlyn, a helpful AI voice assistant. "
+        "Respond in the same language as the user. "
+        "For simple questions keep it concise (1-3 sentences). "
+        "For complex explanations, code, or detailed instructions, respond freely "
+        "with markdown when appropriate — long responses or code blocks are "
+        "automatically saved to a temp file and opened for the user.\n\n"
         "You have the following skills available:\n"
         "- web-search: Search the web for current events, facts, and information.\n"
         "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"
