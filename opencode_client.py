@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -38,11 +39,15 @@ class OpencodeServer:
     def ensure_running(self) -> None:
         if self.health():
             return
+        host = urlparse(self.url).hostname
+        if host not in ("localhost", "127.0.0.1", "::1", None):
+            raise OpencodeError(
+                f"OpenCode server not reachable at {self.url}. "
+                "Ensure the remote server is running."
+            )
         if not OPENCODE_AUTO_START:
             raise OpencodeError("OpenCode server not running. Start it: opencode serve")
-        port = 4096
-        if ":" in self.url:
-            port = int(self.url.split(":")[-1])
+        port = urlparse(self.url).port or 4096
         self.proc = subprocess.Popen(
             ["opencode", "serve", "--port", str(port), "--hostname", "127.0.0.1"],
             stdout=subprocess.DEVNULL,
@@ -139,9 +144,10 @@ class OpencodeSession:
             r.raise_for_status()
             data = r.json()
         except requests.Timeout:
+            self.session_id = None
             return "The request took too long. Try breaking it into smaller questions."
         except requests.RequestException as e:
-            if self.session_id and self._msg_count > 0:
+            if self.session_id:
                 self.session_id = None
                 try:
                     self.create()

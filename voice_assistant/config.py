@@ -73,5 +73,8 @@ SYSTEM_PROMPT: str = os.getenv(
         "- quick-notes: Save quick notes to a file.\n"
         "- system-info: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
         "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.\n"
+        "- rpi-diagnostics: Check server health — CPU temp, throttling, memory, disk, uptime, running services.\n"
+        "- rpi-security: Analyze server security — fail2ban bans, SSH auth failures, listening ports, firewall rules.\n"
+        "- rpi-maintenance: Guide server maintenance — system updates, journal cleanup, package cleanup.\n"
     ),
 )

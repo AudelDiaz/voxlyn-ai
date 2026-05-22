@@ -28,3 +28,6 @@ AGENTS.md
 # SpeckIt project specification (volatile per-developer state)
 .specify/
 opencode.json
+
+# Feature specification (volatile per-developer state)
+specs/

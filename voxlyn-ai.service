@@ -1,8 +1,7 @@
 [Unit]
 Description=voxlyn-ai: Hands-free AI voice assistant daemon
 Documentation=https://github.com/audeldiaz/voxlyn-ai
-After=sound.target opencode.service
-BindsTo=opencode.service
+After=sound.target
 
 [Service]
 Type=exec

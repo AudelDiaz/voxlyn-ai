@@ -1,7 +1,7 @@
 # voxlyn-ai
 
 Hands-free AI voice assistant for Linux. Press a key, speak, get an AI
-voice response — entirely local.
+voice response — local or remote.
 
 **Whisper** → STT · **OpenCode** → LLM agent · **Kokoro** → TTS
 
@@ -11,11 +11,11 @@ Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQ
 
 | Layer | Technology | Role |
 |-------|-----------|------|
-| Speech-to-Text | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (int8) | Transcribe mic audio to text |
-| Agent / LLM | [OpenCode](https://opencode.ai) + any backend | AI agent with skills and memory |
-| Text-to-Speech | [Kokoro](https://github.com/hexgrad/kokoro) TTS (82M) | Multi-language voice synthesis (es + en) |
+| Speech-to-Text | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (int8) | Transcribe mic audio to text (always local) |
+| Agent / LLM | [OpenCode](https://opencode.ai) + any backend | AI agent with skills and memory (local or remote) |
+| Text-to-Speech | [Kokoro](https://github.com/hexgrad/kokoro) TTS (82M) | Multi-language voice synthesis (es + en, always local) |
 | Memory | [MemPalace v3](https://github.com/MemPalace/mempalace) (ChromaDB, semantic search) | Persistent conversation history with 96.6% R@5 recall |
-| Runtime | Python 3.13+ · [uv](https://docs.astral.sh/uv/) · systemd | Dependency management and daemon lifecycle |
+| Runtime | Python 3.12+ · [uv](https://docs.astral.sh/uv/) · systemd | Dependency management and daemon lifecycle |
 | Audio I/O | sounddevice · soundfile · PulseAudio/PipeWire | Capture and playback |
 
 ## Architecture
@@ -24,11 +24,12 @@ Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQ
 Trigger (keyboard shortcut)
   │  sends "record" via Unix socket
   ▼
-Daemon (persistent systemd service)
+Daemon (persistent systemd service) — local machine
   ├── Whisper (faster-whisper, int8)  ← speech-to-text
-  ├── OpenCode agent                  ← LLM with skills + memory
   ├── Kokoro TTS                      ← text-to-speech (multi-language)
-  └── MemPalace (ChromaDB)            ← semantic conversation memory (96.6% R@5)
+  ├── MemPalace (ChromaDB)            ← semantic conversation memory
+  └── OpenCode client ───HTTP──► OpenCode server (local or remote)
+                                   └── LLM + skills + system prompt
 ```
 
 ## Quick start
@@ -37,7 +38,7 @@ Daemon (persistent systemd service)
 
 | Dependency | Notes |
 |------------|-------|
-| Linux desktop | Tested on CachyOS, Arch, Ubuntu (Gnome / Hyprland) |
+| Linux desktop | Optimized for Arch-based distros (CachyOS, Manjaro, EndeavourOS, vanilla Arch). Other distros may require adjustments. |
 | [uv](https://docs.astral.sh/uv/) | Python package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | [OpenCode](https://opencode.ai) | AI agent server — `npm install -g @opencode-ai/cli` |
 | PulseAudio / PipeWire | Audio system (pre-installed on most distros) |
@@ -116,7 +117,7 @@ voxlyn-ai/
 ├── daemon.py                  # Persistent daemon entry point
 ├── trigger.py                 # Keyboard-shortcut client
 ├── tests/                     # pytest suite
-├── .opencode/skills/          # Agent skills (5 built-in)
+├── .opencode/skills/          # Agent skills (9 built-in)
 ├── .python-version            # Python 3.12 for Kokoro/spacy compat
 ├── opencode_client.py         # OpenCode REST client
 ├── mempalace_memory.py        # MemPalace v3 conversation memory (semantic search, ChromaDB)
@@ -133,23 +134,33 @@ voxlyn-ai/
 | `WHISPER_MODEL` | `small` | Model size: `tiny`, `base`, `small`, `medium`, `large` |
 | `COMPUTE_TYPE` | `int8` | Quantization: `int8`, `float16`, `float32` |
 | `WHISPER_LANG` | auto | Force language code (`es`, `en`, …) or empty for auto |
+| `VAD_THRESHOLD` | `0.3` | VAD sensitivity for voice activity detection |
+| `HOTWORDS` | *(built-in list)* | Hotwords passed to Whisper for recognition hints |
 | `KOKORO_VOICE_EN` | `af_heart` | Kokoro English voice preset |
 | `KOKORO_VOICE_ES` | `ef_dora` | Kokoro Spanish voice preset |
-| `OPENCODE_URL` | `http://localhost:4096` | OpenCode server URL |
+| `OPENCODE_URL` | `http://localhost:4096` | OpenCode server URL (local or remote) |
+| `OPENCODE_AUTO_START` | `true` | Auto-start OpenCode server when URL is localhost |
+| `OPENCODE_TIMEOUT` | `180` | Timeout (seconds) for LLM requests |
+| `OPENCODE_SERVER_USERNAME` | `opencode` | HTTP Basic Auth username for OpenCode |
+| `OPENCODE_SERVER_PASSWORD` | *(auto-generated)* | HTTP Basic Auth password for OpenCode |
 | `VARIANT` | `""` (default) | OpenCode reasoning variant: `low`, `medium`, `high`, `max` |
 | `SYSTEM_PROMPT` | *(built-in)* | Override the LLM system prompt |
 
 ## Skills
 
-The OpenCode agent ships with these built-in skills:
+The agent ships with these built-in skills:
 
 | Skill | Purpose |
 |-------|---------|
 | `web-search` | Real-time web search for facts and news |
 | `system-control` | Volume, brightness, apps, screenshots |
+| `system-info` | System diagnostics (RAM, CPU, disk, updates) |
 | `reminders` | Persistent reminders with systemd timers |
 | `quick-notes` | Voice notes saved to `~/Notes/` |
-| `system-info` | System diagnostics (RAM, CPU, disk, updates) |
+| `mempalace` | Semantic conversation memory management |
+| `rpi-diagnostics` | Server health (CPU temp, memory, disk, uptime) |
+| `rpi-security` | Server security (fail2ban, SSH logs, firewall) |
+| `rpi-maintenance` | Server maintenance (updates, journal, cleanup) |
 
 To add your own skill, create a directory under `.opencode/skills/` with a
 `SKILL.md` (see [OpenCode skill docs](https://opencode.ai/docs/skills/)).
@@ -228,15 +239,41 @@ tail -f ~/.voice-assistant/voxlyn-ai.err
 | **Research assistant** | "Busca en internet el clima de hoy" — web-search skill fetches live answers |
 | **Accessibility** | Full voice interface for users with motor or vision impairments |
 
+## Remote OpenCode (optional)
+
+By default voxlyn expects OpenCode on `localhost:4096`. To use a remote
+server instead, create a systemd drop-in override:
+
+```bash
+mkdir -p ~/.config/systemd/user/voxlyn-ai.service.d
+```
+
+```ini
+# ~/.config/systemd/user/voxlyn-ai.service.d/override.conf
+[Service]
+Environment=OPENCODE_URL=http://<remote-ip>:4096
+Environment=OPENCODE_AUTO_START=false
+Environment=OPENCODE_SERVER_USERNAME=voxlyn
+Environment=OPENCODE_SERVER_PASSWORD=<your-password>
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart voxlyn-ai
+```
+
+The daemon detects non-localhost URLs and skips the local auto-start.
+STT (Whisper) and TTS (Kokoro) always run locally for low latency.
+
 ## Roadmap
 
+- [x] **Vector memory** — semantic search with MemPalace v3 (96.6% R@5)
+- [x] **Multi-language** — seamless switching between es/en mid-conversation
 - [ ] **Wake word detection** — activate with "Hey Voxlyn" instead of a key press
 - [ ] **Multi-turn voice UI** — chain follow-up questions without re-triggering
-- [ ] **Vector memory** — upgrade from last-N to semantic search (sentence embeddings)
 - [ ] **Plugin system** — third-party skills loaded from `~/.config/voxlyn/skills/`
 - [ ] **GUI dashboard** — view conversation history, manage sessions, test voices
 - [ ] **Offline LLM** — bundle a local model via Ollama/Llama.cpp for fully offline use
-- [ ] **Multi-language** — seamless switching between languages mid-conversation
 - [ ] **Mobile companion** — Flutter/GTK app for push-to-talk from phone
 
 ## Uninstall
