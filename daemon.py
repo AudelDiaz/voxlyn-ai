@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", message="`torch.nn.utils.weight_norm` is depre
 
 from faster_whisper import WhisperModel
 
-from opencode_client import OpencodeServer, OpencodeSession
+from opencode_client import OpencodeError, OpencodeServer, OpencodeSession
 from voice_assistant.audio import (
     play_listen_tone,
     play_process_tone,
@@ -44,7 +44,6 @@ from voice_assistant.config import (
     SYSTEM_PROMPT,
     WHISPER_MODEL,
 )
-from voice_assistant.utils import has_code_block
 from voice_assistant.llm import get_response, shutdown_memory_executor
 from voice_assistant.transcription import transcribe
 
@@ -302,7 +301,11 @@ def main() -> None:
     log.info("Connecting to OpenCode...")
     server = OpencodeServer()
     _server = server
-    server.ensure_running()
+    try:
+        server.ensure_running()
+    except OpencodeError as e:
+        log.critical(f"Failed to connect to OpenCode: {e}")
+        sys.exit(1)
     session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT)
     log.info("OpenCode connected")
 

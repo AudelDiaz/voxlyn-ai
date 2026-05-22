@@ -1,6 +1,6 @@
 """Tests for voice_assistant.utils."""
 
-from voice_assistant.utils import clean_markdown
+from voice_assistant.utils import clean_markdown, summarize
 
 
 def test_clean_markdown_removes_bold():
@@ -51,3 +51,21 @@ def test_clean_markdown_collapses_newlines():
 def test_clean_markdown_plain_text_unchanged():
     result = clean_markdown("Hola, ¿cómo estás?")
     assert result == "Hola, ¿cómo estás?"
+
+
+class TestSummarize:
+    def test_short_text_unchanged(self):
+        assert summarize("Hola mundo") == "Hola mundo"
+
+    def test_truncates_at_sentence_boundary(self):
+        long = "Primera oración. Segunda oración. Tercera oración."
+        result = summarize(long, max_len=30)
+        assert result == "Primera oración."
+
+    def test_truncates_at_word_boundary(self):
+        long = " ".join(["word"] * 50)
+        result = summarize(long, max_len=50)
+        assert len(result) <= 53  # may add ellipsis
+
+    def test_empty_returns_empty(self):
+        assert summarize("") == ""
