@@ -55,6 +55,9 @@ LONG_RESPONSE_THRESHOLD: int = int(os.getenv("LONG_RESPONSE_THRESHOLD", "300"))
 # --- OpenCode ---
 OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
 
+# --- Project directory for local opencode CLI ---
+VOXYLN_PROJECT_DIR: str = os.getenv("VOXYLN_PROJECT_DIR", "")
+
 # --- OpenCode variant (reasoning effort) ---
 VARIANT: str = os.getenv("VARIANT", "low")
 
