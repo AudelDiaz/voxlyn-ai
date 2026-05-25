@@ -1,10 +1,13 @@
 ---
-name: rpi-maintenance
+name: remote-maintenance
 description: >
-  Guide Raspberry Pi maintenance: system updates, package cleanup, journal
+  Guide remote server maintenance: system updates, package cleanup, journal
   log rotation, SD card health (SMART-like checks), and opencode server
-  restarts. For Manjaro ARM (Arch-based).
+  restarts. For Manjaro ARM / Arch-based servers.
 ---
+
+Only use this skill when the user explicitly mentions "server", "RPI", "raspberry",
+or the remote hostname. By default, all maintenance queries refer to the LOCAL machine.
 
 When the user asks about maintaining, updating, or cleaning up the server:
 
@@ -18,3 +21,6 @@ When the user asks about maintaining, updating, or cleaning up the server:
 - **Uptime check**: `uptime` — recommend reboot if uptime > 90 days
 
 Always confirm before running destructive commands (package removal, journal vacuum). Suggest scheduling updates during low-usage times.
+
+**SAFETY**: Never suggest shutdown, reboot, poweroff, halt, or destructive
+system commands for this remote server — those are only safe on the local machine.

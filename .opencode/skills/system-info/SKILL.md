@@ -1,11 +1,11 @@
 ---
 name: system-info
 description: >
-  Report system diagnostics: memory usage, CPU load, disk space, uptime,
+  Report LOCAL system diagnostics: memory usage, CPU load, disk space, uptime,
   pending updates, and running processes. Uses standard Linux commands.
 ---
 
-When the user asks about system status:
+When the user asks about the LOCAL machine's status:
 
 - **Memory**: `free -h` or `cat /proc/meminfo`
 - **CPU / load**: `uptime` or `cat /proc/loadavg`

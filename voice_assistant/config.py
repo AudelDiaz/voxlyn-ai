@@ -1,6 +1,7 @@
 """Application-wide configuration and environment variables."""
 
 import os
+from urllib.parse import urlparse
 
 # --- Audio recording ---
 SAMPLE_RATE: int = 16000
@@ -14,6 +15,27 @@ WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "small")
 COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 WHISPER_LANG: str = os.getenv("WHISPER_LANG", "")
 VAD_THRESHOLD: float = float(os.getenv("VAD_THRESHOLD", "0.3"))
+
+# --- Query routing local/remote ---
+NEVER_REMOTE_KEYWORDS: frozenset = frozenset({
+    "apagar", "shutdown", "reboot", "reiniciar",
+    "poweroff", "halt", "suspend", "hibernate",
+    "apagado", "reinicio",
+})
+
+REMOTE_TRIGGERS: frozenset = frozenset({
+    "server", "servidor", "raspberry", "rpi",
+})
+
+LOCAL_KEYWORDS: frozenset = frozenset({
+    "recursos", "diagnóstico", "diagnostico", "monitoreo",
+    "mantenimiento", "estado del sistema", "volumen", "brillo",
+    "captura", "abrir", "memoria", "disco", "cpu", "ram",
+    "actualizaciones", "procesos", "rendimiento",
+    "system", "resources", "diagnostics", "memory", "disk",
+    "uptime", "processes", "performance", "update", "volume",
+    "brightness", "screenshot", "open",
+})
 
 HOTWORDS: str = os.getenv(
     "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API,logs,log,registro,registros"
@@ -32,6 +54,9 @@ LONG_RESPONSE_THRESHOLD: int = int(os.getenv("LONG_RESPONSE_THRESHOLD", "300"))
 
 # --- OpenCode ---
 OPENCODE_URL: str = os.getenv("OPENCODE_URL", "http://localhost:4096")
+
+# --- Project directory for local opencode CLI ---
+VOXYLN_PROJECT_DIR: str = os.getenv("VOXYLN_PROJECT_DIR", "")
 
 # --- OpenCode variant (reasoning effort) ---
 VARIANT: str = os.getenv("VARIANT", "low")
@@ -57,24 +82,60 @@ AUTO_VARIANT_KEYWORDS: tuple[str, ...] = (
 )
 
 # --- System prompt sent to the LLM ---
-SYSTEM_PROMPT: str = os.getenv(
-    "SYSTEM_PROMPT",
-    (
-        "You are voxlyn, a helpful AI voice assistant. "
-        "Respond in the same language as the user. "
-        "For simple questions keep it concise (1-3 sentences). "
-        "For complex explanations, code, or detailed instructions, respond freely "
-        "with markdown when appropriate — long responses or code blocks are "
-        "automatically saved to a temp file and opened for the user.\n\n"
-        "You have the following skills available:\n"
-        "- web-search: Search the web for current events, facts, and information.\n"
-        "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"
-        "- reminders: Set and manage reminders and timers.\n"
-        "- quick-notes: Save quick notes to a file.\n"
-        "- system-info: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
-        "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.\n"
-        "- rpi-diagnostics: Check server health — CPU temp, throttling, memory, disk, uptime, running services.\n"
-        "- rpi-security: Analyze server security — fail2ban bans, SSH auth failures, listening ports, firewall rules.\n"
-        "- rpi-maintenance: Guide server maintenance — system updates, journal cleanup, package cleanup.\n"
-    ),
-)
+_SYSTEM_PROMPT_OVERRIDE: str | None = os.getenv("SYSTEM_PROMPT")
+
+
+def _is_opencode_remote() -> bool:
+    host = urlparse(OPENCODE_URL).hostname or "localhost"
+    return host not in ("localhost", "127.0.0.1", "::1")
+
+
+def _build_default_system_prompt() -> str:
+    is_remote = _is_opencode_remote()
+
+    core_skills: list[str] = [
+        "- web-search: Search the web for current events, facts, and information.",
+        "- reminders: Set and manage reminders and timers.",
+        "- quick-notes: Save quick notes to a file.",
+        "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.",
+    ]
+
+    parts: list[str] = [
+        "You are voxlyn, a helpful AI voice assistant.",
+        "Respond in the same language as the user.",
+        "For simple questions keep it concise (1-3 sentences).",
+        "For complex explanations, code, or detailed instructions, respond freely with markdown when appropriate — long responses or code blocks are automatically saved to a temp file and opened for the user.",
+        "",
+        "You have the following skills available:",
+    ]
+
+    if is_remote:
+        remote_skills: list[str] = [
+            "- remote-diagnostics: Server hardware health (CPU temp, throttling, running services, zram). Only for the server running this assistant.",
+            "- remote-security: Server security — fail2ban bans, SSH auth failures, listening ports, firewall rules.",
+            "- remote-maintenance: Server maintenance — system updates, journal cleanup, package cleanup, SD card health.",
+        ]
+        parts.extend(core_skills)
+        parts.extend(remote_skills)
+        parts.append("")
+        parts.append("IMPORTANT:")
+        parts.append("- This assistant runs on a REMOTE server. Bash commands execute on that server, not on your local machine.")
+        parts.append("- remote-diagnostics/security/maintenance all refer to the server running this assistant.")
+        parts.append("- Your LOCAL machine's resources cannot be checked via voice commands in this setup.")
+        parts.append("- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for this server.")
+    else:
+        local_skills: list[str] = [
+            "- system-control: Adjust system volume, brightness, open applications, take screenshots.",
+            "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).",
+        ]
+        parts.extend(core_skills)
+        parts.extend(local_skills)
+        parts.append("")
+        parts.append("IMPORTANT:")
+        parts.append("- system-info and system-control apply to the LOCAL machine only.")
+
+    return "\n".join(parts)
+
+
+def get_system_prompt() -> str:
+    return _SYSTEM_PROMPT_OVERRIDE if _SYSTEM_PROMPT_OVERRIDE else _build_default_system_prompt()

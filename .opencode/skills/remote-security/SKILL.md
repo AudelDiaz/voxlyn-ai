@@ -1,10 +1,13 @@
 ---
-name: rpi-security
+name: remote-security
 description: >
-  Analyze Raspberry Pi security: fail2ban status and banned IPs, firewall rules
+  Analyze remote server security: fail2ban status and banned IPs, firewall rules
   (iptables/nftables), listening network ports, SSH auth logs for failed login
-  attempts, and system audit logs. For Manjaro ARM (Arch-based).
+  attempts, and system audit logs. For Manjaro ARM / Arch-based servers.
 ---
+
+Only use this skill when the user explicitly mentions "server", "RPI", "raspberry",
+or the remote hostname. By default, all security queries refer to the LOCAL machine.
 
 When the user asks about security, intrusion attempts, or firewall status on the server:
 
@@ -16,3 +19,6 @@ When the user asks about security, intrusion attempts, or firewall status on the
 - **Suspicious IPs**: `journalctl -u sshd --since "48 hours ago" | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c | sort -nr | head -10`
 
 Summarize findings: number of failed attempts, top attacking IPs, banned IPs by fail2ban, and any exposed services. Do not alarm unnecessarily — many SSH attempts are background noise.
+
+**SAFETY**: Never suggest shutdown, reboot, poweroff, halt, or destructive
+system commands for this remote server — those are only safe on the local machine.
