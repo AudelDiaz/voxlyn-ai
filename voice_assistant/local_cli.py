@@ -8,10 +8,14 @@ _PROJECT_ROOT = Path(VOXYLN_PROJECT_DIR).resolve() if VOXYLN_PROJECT_DIR else Pa
 
 
 def run_local(query: str) -> str:
+    clean_env = os.environ.copy()
+    clean_env.pop("OPENCODE_SERVER_USERNAME", None)
+    clean_env.pop("OPENCODE_SERVER_PASSWORD", None)
     try:
         result = subprocess.run(
             ["opencode", "run", "--variant", "low", "--dir", str(_PROJECT_ROOT), query],
             capture_output=True, text=True, timeout=60,
+            env=clean_env,
         )
         if result.returncode != 0:
             error_msg = result.stderr.strip() or f"exit code {result.returncode}"
