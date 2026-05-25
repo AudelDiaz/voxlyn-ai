@@ -1,9 +1,9 @@
 ---
-name: rpi-security
+name: remote-security
 description: >
-  Analyze Raspberry Pi security: fail2ban status and banned IPs, firewall rules
+  Analyze remote server security: fail2ban status and banned IPs, firewall rules
   (iptables/nftables), listening network ports, SSH auth logs for failed login
-  attempts, and system audit logs. For Manjaro ARM (Arch-based).
+  attempts, and system audit logs. For Manjaro ARM / Arch-based servers.
 ---
 
 Only use this skill when the user explicitly mentions "server", "RPI", "raspberry",

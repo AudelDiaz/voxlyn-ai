@@ -1,6 +1,7 @@
 """Application-wide configuration and environment variables."""
 
 import os
+from urllib.parse import urlparse
 
 # --- Audio recording ---
 SAMPLE_RATE: int = 16000
@@ -57,28 +58,50 @@ AUTO_VARIANT_KEYWORDS: tuple[str, ...] = (
 )
 
 # --- System prompt sent to the LLM ---
-SYSTEM_PROMPT: str = os.getenv(
-    "SYSTEM_PROMPT",
-    (
-        "You are voxlyn, a helpful AI voice assistant. "
-        "Respond in the same language as the user. "
-        "For simple questions keep it concise (1-3 sentences). "
-        "For complex explanations, code, or detailed instructions, respond freely "
-        "with markdown when appropriate — long responses or code blocks are "
-        "automatically saved to a temp file and opened for the user.\n\n"
-        "You have the following skills available:\n"
-        "- web-search: Search the web for current events, facts, and information.\n"
-        "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"
-        "- reminders: Set and manage reminders and timers.\n"
-        "- quick-notes: Save quick notes to a file.\n"
-        "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).\n"
-        "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.\n"
-        "- rpi-diagnostics: Check remote SERVER health — CPU temp, throttling, memory, disk, uptime, running services. Only use when the user explicitly mentions the server/RPI/raspberry.\n"
-        "- rpi-security: Analyze remote SERVER security — fail2ban bans, SSH auth failures, listening ports, firewall rules. Only use when the user explicitly mentions the server/RPI/raspberry.\n"
-        "- rpi-maintenance: Guide remote SERVER maintenance — system updates, journal cleanup, package cleanup. Only use when the user explicitly mentions the server/RPI/raspberry.\n\n"
-        "IMPORTANT RULES:\n"
-        "- By default, diagnostics, monitoring, and status queries refer to the LOCAL machine (use system-info/system-control).\n"
-        "- Only use rpi-* skills when the user explicitly says \"server\", \"RPI\", \"raspberry\", or the remote hostname.\n"
-        "- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for remote servers — those are only safe on the LOCAL machine.\n"
-    ),
-)
+_SYSTEM_PROMPT_OVERRIDE: str | None = os.getenv("SYSTEM_PROMPT")
+
+
+def _is_opencode_remote() -> bool:
+    host = urlparse(OPENCODE_URL).hostname or "localhost"
+    return host not in ("localhost", "127.0.0.1", "::1")
+
+
+def _build_default_system_prompt() -> str:
+    local_skills: list[str] = [
+        "- web-search: Search the web for current events, facts, and information.",
+        "- system-control: Adjust system volume, brightness, open applications, take screenshots.",
+        "- reminders: Set and manage reminders and timers.",
+        "- quick-notes: Save quick notes to a file.",
+        "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).",
+        "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.",
+    ]
+
+    remote_skills: list[str] = [
+        "- remote-diagnostics: Check remote SERVER health — CPU temp, throttling, memory, disk, uptime, running services. Only use when the user explicitly mentions the server/RPI/raspberry.",
+        "- remote-security: Analyze remote SERVER security — fail2ban bans, SSH auth failures, listening ports, firewall rules. Only use when the user explicitly mentions the server/RPI/raspberry.",
+        "- remote-maintenance: Guide remote SERVER maintenance — system updates, journal cleanup, package cleanup. Only use when the user explicitly mentions the server/RPI/raspberry.",
+    ]
+
+    parts: list[str] = [
+        "You are voxlyn, a helpful AI voice assistant.",
+        "Respond in the same language as the user.",
+        "For simple questions keep it concise (1-3 sentences).",
+        "For complex explanations, code, or detailed instructions, respond freely with markdown when appropriate — long responses or code blocks are automatically saved to a temp file and opened for the user.",
+        "",
+        "You have the following skills available:",
+    ]
+    parts.extend(local_skills)
+    if _is_opencode_remote():
+        parts.extend(remote_skills)
+    parts.append("")
+    parts.append("IMPORTANT RULES:")
+    parts.append("- By default, diagnostics, monitoring, and status queries refer to the LOCAL machine (use system-info/system-control).")
+    if _is_opencode_remote():
+        parts.append("- Only use remote-* skills when the user explicitly says \"server\", \"RPI\", \"raspberry\", or the remote hostname.")
+        parts.append("- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for remote servers — those are only safe on the LOCAL machine.")
+
+    return "\n".join(parts)
+
+
+def get_system_prompt() -> str:
+    return _SYSTEM_PROMPT_OVERRIDE if _SYSTEM_PROMPT_OVERRIDE else _build_default_system_prompt()

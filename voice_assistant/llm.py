@@ -8,8 +8,8 @@ from opencode_client import OpencodeServer, OpencodeSession
 from voice_assistant.commands import handle_session_command
 from voice_assistant.config import (
     AUTO_VARIANT_KEYWORDS,
-    SYSTEM_PROMPT,
     VARIANT,
+    get_system_prompt,
 )
 from voice_assistant.memory import save_turn, search_context, format_context
 
@@ -55,7 +55,7 @@ def get_response(
         server = OpencodeServer()
         server.ensure_running()
     if session is None:
-        session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT, variant=VARIANT)
+        session = OpencodeSession(server, system_prompt=get_system_prompt(), variant=VARIANT)
 
     cmd_result = handle_session_command(text, session, server)
     if cmd_result is not None:

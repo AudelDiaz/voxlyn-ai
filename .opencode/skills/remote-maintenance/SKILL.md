@@ -1,9 +1,9 @@
 ---
-name: rpi-maintenance
+name: remote-maintenance
 description: >
-  Guide Raspberry Pi maintenance: system updates, package cleanup, journal
+  Guide remote server maintenance: system updates, package cleanup, journal
   log rotation, SD card health (SMART-like checks), and opencode server
-  restarts. For Manjaro ARM (Arch-based).
+  restarts. For Manjaro ARM / Arch-based servers.
 ---
 
 Only use this skill when the user explicitly mentions "server", "RPI", "raspberry",

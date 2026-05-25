@@ -1,9 +1,9 @@
 ---
-name: rpi-diagnostics
+name: remote-diagnostics
 description: >
-  Report Raspberry Pi system health: CPU temperature, clock speed, throttling
+  Report remote server health: CPU temperature, clock speed, throttling
   status, memory usage, disk usage, uptime, and running services. Uses standard
-  Linux commands available on Manjaro ARM (Arch-based).
+  Linux commands available on Manjaro ARM / Arch-based servers.
 ---
 
 Only use this skill when the user explicitly mentions "server", "RPI", "raspberry",

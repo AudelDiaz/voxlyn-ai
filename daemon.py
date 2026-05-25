@@ -41,8 +41,8 @@ from voice_assistant.config import (
     COMPUTE_TYPE,
     LONG_RESPONSE_THRESHOLD,
     SAMPLE_RATE,
-    SYSTEM_PROMPT,
     WHISPER_MODEL,
+    get_system_prompt,
 )
 from voice_assistant.llm import get_response, shutdown_memory_executor
 from voice_assistant.transcription import transcribe
@@ -306,7 +306,7 @@ def main() -> None:
     except OpencodeError as e:
         log.critical(f"Failed to connect to OpenCode: {e}")
         sys.exit(1)
-    session = OpencodeSession(server, system_prompt=SYSTEM_PROMPT)
+    session = OpencodeSession(server, system_prompt=get_system_prompt())
     log.info("OpenCode connected")
 
     try:
