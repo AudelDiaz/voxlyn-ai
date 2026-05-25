@@ -71,10 +71,14 @@ SYSTEM_PROMPT: str = os.getenv(
         "- system-control: Adjust system volume, brightness, open applications, take screenshots.\n"
         "- reminders: Set and manage reminders and timers.\n"
         "- quick-notes: Save quick notes to a file.\n"
-        "- system-info: Report system diagnostics (RAM, CPU, disk, uptime, updates).\n"
+        "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).\n"
         "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.\n"
-        "- rpi-diagnostics: Check server health — CPU temp, throttling, memory, disk, uptime, running services.\n"
-        "- rpi-security: Analyze server security — fail2ban bans, SSH auth failures, listening ports, firewall rules.\n"
-        "- rpi-maintenance: Guide server maintenance — system updates, journal cleanup, package cleanup.\n"
+        "- rpi-diagnostics: Check remote SERVER health — CPU temp, throttling, memory, disk, uptime, running services. Only use when the user explicitly mentions the server/RPI/raspberry.\n"
+        "- rpi-security: Analyze remote SERVER security — fail2ban bans, SSH auth failures, listening ports, firewall rules. Only use when the user explicitly mentions the server/RPI/raspberry.\n"
+        "- rpi-maintenance: Guide remote SERVER maintenance — system updates, journal cleanup, package cleanup. Only use when the user explicitly mentions the server/RPI/raspberry.\n\n"
+        "IMPORTANT RULES:\n"
+        "- By default, diagnostics, monitoring, and status queries refer to the LOCAL machine (use system-info/system-control).\n"
+        "- Only use rpi-* skills when the user explicitly says \"server\", \"RPI\", \"raspberry\", or the remote hostname.\n"
+        "- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for remote servers — those are only safe on the LOCAL machine.\n"
     ),
 )
