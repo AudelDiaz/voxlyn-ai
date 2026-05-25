@@ -44,7 +44,7 @@ HOTWORDS: str = os.getenv(
 # --- Multi-turn follow-up ---
 FOLLOWUP_TIMEOUT: float = float(os.getenv("FOLLOWUP_TIMEOUT", "3.0"))
 FOLLOWUP_SILENCE_DURATION: float = float(
-    os.getenv("FOLLOWUP_SILENCE_DURATION", "0.5")
+    os.getenv("FOLLOWUP_SILENCE_DURATION", "1.5")
 )
 FOLLOWUP_NEGATIVE: frozenset = frozenset({
     "no", "nada", "gracias", "eso es todo",
