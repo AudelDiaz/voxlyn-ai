@@ -77,7 +77,7 @@ def _build_default_system_prompt() -> str:
     ]
 
     remote_skills: list[str] = [
-        "- remote-diagnostics: Check remote SERVER health — CPU temp, throttling, memory, disk, uptime, running services. Only use when the user explicitly mentions the server/RPI/raspberry.",
+        "- remote-diagnostics: Remote SERVER hardware health — CPU temperature, throttling status, running services, zram. Does NOT cover basic RAM/CPU/disk/uptime (see system-info). Only when user explicitly mentions server/RPI/raspberry.",
         "- remote-security: Analyze remote SERVER security — fail2ban bans, SSH auth failures, listening ports, firewall rules. Only use when the user explicitly mentions the server/RPI/raspberry.",
         "- remote-maintenance: Guide remote SERVER maintenance — system updates, journal cleanup, package cleanup. Only use when the user explicitly mentions the server/RPI/raspberry.",
     ]
