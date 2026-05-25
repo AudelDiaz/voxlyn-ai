@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -13,16 +14,23 @@ def run_local(query: str) -> str:
     clean_env.pop("OPENCODE_SERVER_PASSWORD", None)
     try:
         result = subprocess.run(
-            ["opencode", "run", "--variant", "low", "--dir", str(_PROJECT_ROOT), query],
+            ["opencode", "run", "--format", "json", "--variant", "low", "--dir", str(_PROJECT_ROOT), query],
             capture_output=True, text=True, timeout=60,
             env=clean_env,
         )
         if result.returncode != 0:
             error_msg = result.stderr.strip() or f"exit code {result.returncode}"
             return f"Error en opencode local: {error_msg}"
-        lines = result.stdout.strip().splitlines()
-        response = "\n".join(line for line in lines if not line.startswith(">"))
-        return response.strip()
+        for line in result.stdout.strip().splitlines():
+            try:
+                event = json.loads(line)
+                if event.get("type") == "text":
+                    text = event.get("part", {}).get("text", "")
+                    if text:
+                        return text.strip()
+            except json.JSONDecodeError:
+                continue
+        return "No se obtuvo respuesta del CLI local."
     except subprocess.TimeoutExpired:
         return "La consulta local tardó demasiado. Intenta de nuevo."
     except FileNotFoundError:
