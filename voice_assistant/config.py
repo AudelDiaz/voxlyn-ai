@@ -67,19 +67,13 @@ def _is_opencode_remote() -> bool:
 
 
 def _build_default_system_prompt() -> str:
-    local_skills: list[str] = [
+    is_remote = _is_opencode_remote()
+
+    core_skills: list[str] = [
         "- web-search: Search the web for current events, facts, and information.",
-        "- system-control: Adjust system volume, brightness, open applications, take screenshots.",
         "- reminders: Set and manage reminders and timers.",
         "- quick-notes: Save quick notes to a file.",
-        "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).",
         "- mempalace: Memory architecture management — wings, rooms, halls, tunnels, and knowledge graph. Use when the user talks about organizing memories, cross-project connections, or wants to retrieve past discussions.",
-    ]
-
-    remote_skills: list[str] = [
-        "- remote-diagnostics: Remote SERVER hardware health — CPU temperature, throttling status, running services, zram. Does NOT cover basic RAM/CPU/disk/uptime (see system-info). Only when user explicitly mentions server/RPI/raspberry.",
-        "- remote-security: Analyze remote SERVER security — fail2ban bans, SSH auth failures, listening ports, firewall rules. Only use when the user explicitly mentions the server/RPI/raspberry.",
-        "- remote-maintenance: Guide remote SERVER maintenance — system updates, journal cleanup, package cleanup. Only use when the user explicitly mentions the server/RPI/raspberry.",
     ]
 
     parts: list[str] = [
@@ -90,15 +84,31 @@ def _build_default_system_prompt() -> str:
         "",
         "You have the following skills available:",
     ]
-    parts.extend(local_skills)
-    if _is_opencode_remote():
+
+    if is_remote:
+        remote_skills: list[str] = [
+            "- remote-diagnostics: Server hardware health (CPU temp, throttling, running services, zram). Only for the server running this assistant.",
+            "- remote-security: Server security — fail2ban bans, SSH auth failures, listening ports, firewall rules.",
+            "- remote-maintenance: Server maintenance — system updates, journal cleanup, package cleanup, SD card health.",
+        ]
+        parts.extend(core_skills)
         parts.extend(remote_skills)
-    parts.append("")
-    parts.append("IMPORTANT RULES:")
-    parts.append("- By default, diagnostics, monitoring, and status queries refer to the LOCAL machine (use system-info/system-control).")
-    if _is_opencode_remote():
-        parts.append("- Only use remote-* skills when the user explicitly says \"server\", \"RPI\", \"raspberry\", or the remote hostname.")
-        parts.append("- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for remote servers — those are only safe on the LOCAL machine.")
+        parts.append("")
+        parts.append("IMPORTANT:")
+        parts.append("- This assistant runs on a REMOTE server. Bash commands execute on that server, not on your local machine.")
+        parts.append("- remote-diagnostics/security/maintenance all refer to the server running this assistant.")
+        parts.append("- Your LOCAL machine's resources cannot be checked via voice commands in this setup.")
+        parts.append("- NEVER suggest shutdown, reboot, poweroff, halt, or destructive commands for this server.")
+    else:
+        local_skills: list[str] = [
+            "- system-control: Adjust system volume, brightness, open applications, take screenshots.",
+            "- system-info: Report LOCAL system diagnostics (RAM, CPU, disk, uptime, updates).",
+        ]
+        parts.extend(core_skills)
+        parts.extend(local_skills)
+        parts.append("")
+        parts.append("IMPORTANT:")
+        parts.append("- system-info and system-control apply to the LOCAL machine only.")
 
     return "\n".join(parts)
 
