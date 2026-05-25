@@ -41,6 +41,21 @@ HOTWORDS: str = os.getenv(
     "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API,logs,log,registro,registros"
 )
 
+# --- Multi-turn follow-up ---
+FOLLOWUP_TIMEOUT: float = float(os.getenv("FOLLOWUP_TIMEOUT", "3.0"))
+FOLLOWUP_SILENCE_DURATION: float = float(
+    os.getenv("FOLLOWUP_SILENCE_DURATION", "1.5")
+)
+FOLLOWUP_NEGATIVE: frozenset = frozenset({
+    "no", "nada", "gracias", "eso es todo",
+    "no gracias", "no más", "no quiero", "no tengo",
+    "no, gracias", "no, eso es todo", "listo", "terminado",
+})
+FOLLOWUP_SILENT_AFFIRMATIVE: frozenset = frozenset({
+    "sí", "síp", "ajá", "si", "yes", "yeah", "dale", "ok", "okay",
+})
+FOLLOWUP_MAX_RETRIES: int = 3
+
 # --- Kokoro TTS ---
 KOKORO_LANG_EN: str = "a"  # American English
 KOKORO_LANG_ES: str = "e"  # Spanish

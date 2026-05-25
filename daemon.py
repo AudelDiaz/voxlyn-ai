@@ -13,6 +13,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 import warnings
 from pathlib import Path
 
@@ -39,8 +40,14 @@ from voice_assistant.audio import (
 from voice_assistant.utils import has_code_block, notify, _run_in_terminal
 from voice_assistant.config import (
     COMPUTE_TYPE,
+    FOLLOWUP_MAX_RETRIES,
+    FOLLOWUP_NEGATIVE,
+    FOLLOWUP_SILENCE_DURATION,
+    FOLLOWUP_SILENT_AFFIRMATIVE,
+    FOLLOWUP_TIMEOUT,
     LONG_RESPONSE_THRESHOLD,
     SAMPLE_RATE,
+    SILENCE_THRESHOLD,
     WHISPER_MODEL,
     get_system_prompt,
 )
@@ -74,6 +81,53 @@ def _capture_worker(chunks: list[np.ndarray], stop_event: threading.Event) -> No
             chunk, _ = stream.read(1024)
             chunks.append(chunk)
     print("\r[Processing...         ]", file=sys.stderr)
+
+
+def _has_question(text: str) -> bool:
+    """Return True if the text contains a question mark anywhere."""
+    return "?" in text
+
+
+def _quick_listen(timeout: float) -> np.ndarray | None:
+    """Record audio for a follow-up reply (shorter silence, shorter timeout).
+
+    Returns trimmed audio if speech was detected, or None on timeout/cancel.
+    Checks ``_cancel_playback`` and ``_capture_stop`` during recording.
+    """
+    chunks: list[np.ndarray] = []
+    silent_chunks = 0
+    max_silent = int(FOLLOWUP_SILENCE_DURATION * SAMPLE_RATE / 1024)
+    max_chunks = int(timeout * SAMPLE_RATE / 1024)
+
+    with sd.InputStream(
+        samplerate=SAMPLE_RATE, channels=1, blocksize=1024, dtype="float32"
+    ) as stream:
+        while len(chunks) < max_chunks:
+            if _cancel_playback.is_set():
+                log.info("Quick-listen: cancelled by user")
+                return None
+            if _capture_stop.is_set():
+                log.info("Quick-listen: cancelled by trigger")
+                return None
+            chunk, _ = stream.read(1024)
+            chunks.append(chunk)
+            if np.max(np.abs(chunk)) < SILENCE_THRESHOLD:
+                silent_chunks += 1
+            else:
+                silent_chunks = 0
+            if silent_chunks > max_silent:
+                elapsed = len(chunks) * 1024 / SAMPLE_RATE
+                log.info(f"Quick-listen: silence detected after {elapsed:.1f}s")
+                break
+    audio = np.concatenate(chunks).flatten()
+    indices = np.where(np.abs(audio) > SILENCE_THRESHOLD)[0]
+    elapsed = len(audio) / SAMPLE_RATE
+    if len(indices) == 0:
+        log.info(f"Quick-listen: {elapsed:.1f}s captured, all silence — no speech")
+        return None
+    speech_len = (indices[-1] - indices[0]) / SAMPLE_RATE
+    log.info(f"Quick-listen: {elapsed:.1f}s captured, {speech_len:.1f}s speech after trim")
+    return audio[indices[0] : indices[-1] + 1]
 
 
 def setup_logging() -> logging.Logger:
@@ -187,8 +241,64 @@ def process_pipeline(
             return
 
         with _busy_lock:
-            _busy = False
+            _busy = True
         speak(ai_response, user_text=user_text, cancel_event=_cancel_playback)
+
+        if _has_question(ai_response) and not _capture_stop.is_set():
+            log.info("Follow-up: entering AWAITING")
+            retries = 0
+            affirm_retries = 0
+            while not _cancel_playback.is_set() and not _capture_stop.is_set():
+                with _busy_lock:
+                    _busy = True
+                notify("Voxlyn", "Te escucho…")
+                time.sleep(0.3)
+                fu_audio = _quick_listen(FOLLOWUP_TIMEOUT)
+                if fu_audio is None or len(fu_audio) < SAMPLE_RATE * 0.3:
+                    duration = len(fu_audio) / SAMPLE_RATE if fu_audio is not None else 0
+                    log.info(f"Follow-up: audio too short ({duration:.1f}s), exiting loop")
+                    break
+                fu_text = transcribe(whisper, fu_audio)
+                log.info(f"Follow-up transcribed: '{fu_text}'")
+                if not fu_text:
+                    retries += 1
+                    if retries >= FOLLOWUP_MAX_RETRIES:
+                        log.info("Follow-up: max noise retries reached")
+                        break
+                    continue
+                retries = 0
+                lower = fu_text.lower()
+                if lower in FOLLOWUP_NEGATIVE:
+                    log.info("Follow-up: negative keyword matched, returning to IDLE")
+                    break
+                if lower in FOLLOWUP_SILENT_AFFIRMATIVE:
+                    affirm_retries += 1
+                    if affirm_retries >= FOLLOWUP_MAX_RETRIES:
+                        log.info("Follow-up: max affirmative retries reached")
+                        break
+                    log.info("Follow-up: silent affirmative, prompting again")
+                    speak("¿Alguna otra pregunta?")
+                    continue
+                affirm_retries = 0
+                log.info(f"Follow-up: routing '{fu_text}'")
+                play_process_tone()
+                if route(fu_text) == "local":
+                    fu_response = run_local(fu_text)
+                else:
+                    fu_response = get_response(fu_text, server, session)
+                log.info(f"Follow-up assistant: {fu_response}")
+                if fu_response == "__LOGS__":
+                    notify("Voxlyn", "Opening logs…")
+                    _run_in_terminal(["sh", "-c", "journalctl --user -u voxlyn-ai -f"])
+                    speak("Opening logs.", cancel_event=_cancel_playback)
+                    break
+                if not has_code_block(fu_response) and len(fu_response) <= LONG_RESPONSE_THRESHOLD:
+                    preview = fu_response[:120].replace("\n", " ")
+                    notify("Voxlyn", f"{preview}{"…" if len(fu_response) > 120 else ""}")
+                speak(fu_response, user_text=fu_text, cancel_event=_cancel_playback)
+                if not _has_question(fu_response):
+                    log.info("Follow-up: response has no question, exiting loop")
+                    break
         log.info("Pipeline finished")
     except Exception:
         log.exception("Pipeline error")
