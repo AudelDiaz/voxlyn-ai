@@ -16,6 +16,27 @@ COMPUTE_TYPE: str = os.getenv("COMPUTE_TYPE", "int8")
 WHISPER_LANG: str = os.getenv("WHISPER_LANG", "")
 VAD_THRESHOLD: float = float(os.getenv("VAD_THRESHOLD", "0.3"))
 
+# --- Query routing local/remote ---
+NEVER_REMOTE_KEYWORDS: frozenset = frozenset({
+    "apagar", "shutdown", "reboot", "reiniciar",
+    "poweroff", "halt", "suspend", "hibernate",
+    "apagado", "reinicio",
+})
+
+REMOTE_TRIGGERS: frozenset = frozenset({
+    "server", "servidor", "raspberry", "rpi",
+})
+
+LOCAL_KEYWORDS: frozenset = frozenset({
+    "recursos", "diagnóstico", "diagnostico", "monitoreo",
+    "mantenimiento", "estado del sistema", "volumen", "brillo",
+    "captura", "abrir", "memoria", "disco", "cpu", "ram",
+    "actualizaciones", "procesos", "rendimiento",
+    "system", "resources", "diagnostics", "memory", "disk",
+    "uptime", "processes", "performance", "update", "volume",
+    "brightness", "screenshot", "open",
+})
+
 HOTWORDS: str = os.getenv(
     "HOTWORDS", "DeepSeek,Whisper,solución,asistente,open source,API,logs,log,registro,registros"
 )

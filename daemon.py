@@ -45,6 +45,8 @@ from voice_assistant.config import (
     get_system_prompt,
 )
 from voice_assistant.llm import get_response, shutdown_memory_executor
+from voice_assistant.local_cli import run_local
+from voice_assistant.router import route
 from voice_assistant.transcription import transcribe
 
 DATA_DIR = Path.home() / ".voice-assistant"
@@ -163,7 +165,11 @@ def process_pipeline(
 
         log.info(f"User: {user_text}")
         play_process_tone()
-        ai_response = get_response(user_text, server, session)
+
+        if route(user_text) == "local":
+            ai_response = run_local(user_text)
+        else:
+            ai_response = get_response(user_text, server, session)
         log.info(f"Assistant: {ai_response}")
 
         if ai_response == "__LOGS__":
