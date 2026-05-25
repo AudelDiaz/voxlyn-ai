@@ -15,6 +15,7 @@ Inspired by [Nate Gentile's CachyOS + Omarchy setup video](https://youtu.be/b6uQ
 | Agent / LLM | [OpenCode](https://opencode.ai) + any backend | AI agent with skills and memory (local or remote) |
 | Text-to-Speech | [Kokoro](https://github.com/hexgrad/kokoro) TTS (82M) | Multi-language voice synthesis (es + en, always local) |
 | Memory | [MemPalace v3](https://github.com/MemPalace/mempalace) (ChromaDB, semantic search) | Persistent conversation history with 96.6% R@5 recall |
+| Multi-turn follow-up | Built-in daemon loop | Auto-detect LLM questions, chain follow-ups without re-triggering |
 | Runtime | Python 3.12+ · [uv](https://docs.astral.sh/uv/) · systemd | Dependency management and daemon lifecycle |
 | Audio I/O | sounddevice · soundfile · PulseAudio/PipeWire | Capture and playback |
 
@@ -113,8 +114,10 @@ voxlyn-ai/
 │   ├── llm.py                 # OpenCode API interaction
 │   ├── commands.py            # In-session voice commands
 │   ├── memory.py              # Conversation memory
+│   ├── router.py              # Local/remote query routing
+│   ├── local_cli.py           # Local opencode CLI runner
 │   └── utils.py               # Markdown cleaning, notifications
-├── daemon.py                  # Persistent daemon entry point
+├── daemon.py                  # Persistent daemon entry point (with follow-up loop)
 ├── trigger.py                 # Keyboard-shortcut client
 ├── tests/                     # pytest suite
 ├── .opencode/skills/          # Agent skills (9 built-in)
@@ -136,6 +139,8 @@ voxlyn-ai/
 | `WHISPER_LANG` | auto | Force language code (`es`, `en`, …) or empty for auto |
 | `VAD_THRESHOLD` | `0.3` | VAD sensitivity for voice activity detection |
 | `HOTWORDS` | *(built-in list)* | Hotwords passed to Whisper for recognition hints |
+| `SILENCE_THRESHOLD` | `0.01` | Amplitude threshold for silence detection during recording |
+| `SILENCE_DURATION` | `2.0` | Seconds of silence before recording stops |
 | `KOKORO_VOICE_EN` | `af_heart` | Kokoro English voice preset |
 | `KOKORO_VOICE_ES` | `ef_dora` | Kokoro Spanish voice preset |
 | `OPENCODE_URL` | `http://localhost:4096` | OpenCode server URL (local or remote) |
@@ -145,22 +150,25 @@ voxlyn-ai/
 | `OPENCODE_SERVER_PASSWORD` | *(auto-generated)* | HTTP Basic Auth password for OpenCode |
 | `VARIANT` | `""` (default) | OpenCode reasoning variant: `low`, `medium`, `high`, `max` |
 | `SYSTEM_PROMPT` | *(built-in)* | Override the LLM system prompt |
+| `FOLLOWUP_TIMEOUT` | `3.0` | Max seconds to listen for a follow-up reply |
+| `FOLLOWUP_SILENCE_DURATION` | `1.5` | Seconds of silence before ending follow-up listen |
+| `FOLLOWUP_MAX_RETRIES` | `3` | Max noise/affirmation retries in follow-up loop |
 
 ## Skills
 
 The agent ships with these built-in skills:
 
-| Skill | Purpose |
-|-------|---------|
-| `web-search` | Real-time web search for facts and news |
-| `system-control` | Volume, brightness, apps, screenshots |
-| `system-info` | System diagnostics (RAM, CPU, disk, updates) |
-| `reminders` | Persistent reminders with systemd timers |
-| `quick-notes` | Voice notes saved to `~/Notes/` |
-| `mempalace` | Semantic conversation memory management |
-| `rpi-diagnostics` | Server health (CPU temp, memory, disk, uptime) |
-| `rpi-security` | Server security (fail2ban, SSH logs, firewall) |
-| `rpi-maintenance` | Server maintenance (updates, journal, cleanup) |
+| Skill | Available when | Purpose |
+|-------|----------------|---------|
+| `web-search` | Always | Real-time web search for facts and news |
+| `reminders` | Always | Persistent reminders with systemd timers |
+| `quick-notes` | Always | Voice notes saved to `~/Notes/` |
+| `mempalace` | Always | Semantic conversation memory management |
+| `system-control` | Local only | Volume, brightness, apps, screenshots |
+| `system-info` | Local only | System diagnostics (RAM, CPU, disk, updates) |
+| `remote-diagnostics` | Remote only | Server hardware health (CPU temp, throttling, services) |
+| `remote-security` | Remote only | Server security (fail2ban, SSH logs, firewall, ports) |
+| `remote-maintenance` | Remote only | Server maintenance (updates, journal cleanup, SD health) |
 
 To add your own skill, create a directory under `.opencode/skills/` with a
 `SKILL.md` (see [OpenCode skill docs](https://opencode.ai/docs/skills/)).
@@ -217,6 +225,23 @@ cross-wing tunnels, agent diaries.  See the
 uv run pytest
 ```
 
+## Multi-turn follow-up
+
+When the LLM response contains a question (`?`), the daemon automatically
+enters an **AWAITING** state after speaking — listening for a follow-up
+reply without requiring another trigger press.
+
+```
+Trigger → speak → LLM asks "?"
+  → listen (3s timeout, 1.5s silence)
+    → "no" / "gracias" → IDLE (no LLM cost)
+    → "sí" / "dale"    → re-prompt "¿Alguna otra pregunta?"
+    → real query       → route → LLM → speak → check for more "?"
+```
+
+Cancel at any point with the trigger key. Follow-up queries use the same
+OpenCode session for natural conversation continuity.
+
 ## Logs
 
 ```bash
@@ -270,7 +295,7 @@ STT (Whisper) and TTS (Kokoro) always run locally for low latency.
 - [x] **Vector memory** — semantic search with MemPalace v3 (96.6% R@5)
 - [x] **Multi-language** — seamless switching between es/en mid-conversation
 - [ ] **Wake word detection** — activate with "Hey Voxlyn" instead of a key press
-- [ ] **Multi-turn voice UI** — chain follow-up questions without re-triggering
+- [x] **Multi-turn voice UI** — auto-detect LLM questions, chain follow-ups without re-triggering
 - [ ] **Plugin system** — third-party skills loaded from `~/.config/voxlyn/skills/`
 - [ ] **GUI dashboard** — view conversation history, manage sessions, test voices
 - [ ] **Offline LLM** — bundle a local model via Ollama/Llama.cpp for fully offline use
