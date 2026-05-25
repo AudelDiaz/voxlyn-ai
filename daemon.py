@@ -83,6 +83,11 @@ def _capture_worker(chunks: list[np.ndarray], stop_event: threading.Event) -> No
     print("\r[Processing...         ]", file=sys.stderr)
 
 
+def _has_question(text: str) -> bool:
+    """Return True if the text contains a question mark anywhere."""
+    return "?" in text
+
+
 def _quick_listen(timeout: float) -> np.ndarray | None:
     """Record audio for a follow-up reply (shorter silence, shorter timeout).
 
@@ -239,7 +244,7 @@ def process_pipeline(
             _busy = True
         speak(ai_response, user_text=user_text, cancel_event=_cancel_playback)
 
-        if ai_response.endswith("?") and not _capture_stop.is_set():
+        if _has_question(ai_response) and not _capture_stop.is_set():
             log.info("Follow-up: entering AWAITING")
             retries = 0
             affirm_retries = 0
@@ -291,7 +296,7 @@ def process_pipeline(
                     preview = fu_response[:120].replace("\n", " ")
                     notify("Voxlyn", f"{preview}{"…" if len(fu_response) > 120 else ""}")
                 speak(fu_response, user_text=fu_text, cancel_event=_cancel_playback)
-                if not fu_response.endswith("?"):
+                if not _has_question(fu_response):
                     log.info("Follow-up: response has no question, exiting loop")
                     break
         log.info("Pipeline finished")
