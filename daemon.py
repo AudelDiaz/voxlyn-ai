@@ -251,7 +251,7 @@ def process_pipeline(
             while not _cancel_playback.is_set() and not _capture_stop.is_set():
                 with _busy_lock:
                     _busy = True
-                notify("Voxlyn", "Te escucho…")
+                notify("Voxlyn", "Listening…")
                 time.sleep(0.3)
                 fu_audio = _quick_listen(FOLLOWUP_TIMEOUT)
                 if fu_audio is None or len(fu_audio) < SAMPLE_RATE * 0.3:

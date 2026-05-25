@@ -234,9 +234,9 @@ reply without requiring another trigger press.
 ```
 Trigger → speak → LLM asks "?"
   → listen (3s timeout, 1.5s silence)
-    → "no" / "gracias" → IDLE (no LLM cost)
-    → "sí" / "dale"    → re-prompt "¿Alguna otra pregunta?"
-    → real query       → route → LLM → speak → check for more "?"
+    → negative reply  → IDLE (no LLM cost)
+    → affirmative only → re-prompt "anything else?"
+    → real query      → route → LLM → speak → check for more "?"
 ```
 
 Cancel at any point with the trigger key. Follow-up queries use the same
